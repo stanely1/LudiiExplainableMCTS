@@ -1,0 +1,9 @@
+# build
+lib/
+target/
+project/target/
+.bsp/
+
+# ludii files
+ludii_preferences.json
+ludii.trl

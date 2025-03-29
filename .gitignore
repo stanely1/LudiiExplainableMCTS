@@ -1,0 +1,4 @@
+lib/
+.vscode/
+.metals/
+.scala-build/
