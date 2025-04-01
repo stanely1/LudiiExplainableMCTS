@@ -28,3 +28,11 @@ java {
 application {
     mainClass = 'main.LaunchLudii'
 }
+
+// TODO: fix
+// build.doFirst {
+//     println "Executing pre-build script..."
+//     project.exec {
+//         commandLine 'sh', './download_ludii.sh'
+//     }
+// }
