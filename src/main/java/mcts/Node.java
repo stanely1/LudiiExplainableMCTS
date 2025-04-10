@@ -6,6 +6,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import game.Game;
 import other.move.Move;
+import other.RankUtils;
 import other.context.Context;
 import main.collections.FastArrayList;
 
@@ -35,12 +36,81 @@ public class Node
         unexpandedMoves = new FastArrayList<Move>(game.moves(context).moves());
     }
 
-    public Node select() 
+    public boolean isExpanded()
     {
-
+        return unexpandedMoves.isEmpty();
     }
 
-    
+    public Node select() 
+    {
+        Node bestChild = null;
+        double bestValue = Double.NEGATIVE_INFINITY;
+        final double twoParentLog = 2.0 * Math.log(Math.max(1, this.visitCount));
+        final int currentPlayerID = this.context.state().mover();
+        int numBestFound = 0;
 
+        for(final var childNode : this.children)
+        {
+            final double exploit = childNode.scoreSums[currentPlayerID] / childNode.visitCount;
+            final double explore = Math.sqrt(twoParentLog / childNode.visitCount);
+            final double ucb1Value = exploit + explore;
+
+            if(ucb1Value > bestValue)
+            {
+                bestValue = ucb1Value;
+                bestChild = childNode;
+                numBestFound = 1;
+            }
+            else if
+            (
+                ucb1Value == bestValue &&
+                ThreadLocalRandom.current().nextInt() % ++numBestFound == 0
+            )
+            {
+                bestChild = childNode;
+            }
+        }
+        return bestChild;
+    }
+
+    public void expand()
+    {
+        if(this.isExpanded())
+            return;
+        
+        final var move = this.unexpandedMoves.remove(
+            ThreadLocalRandom.current().nextInt(this.unexpandedMoves.size()));
+
+        final Context context = new Context(this.context);
+
+        context.game().apply(context, move);
+
+        var newNode = new Node(this, move, context);
+        newNode.simulate();
+        this.children.add(newNode);
+    }
+
+    private double[] simulate()
+    {
+        Context tempContext = this.context;
+        if(!tempContext.trial().over())
+        {
+            tempContext = new Context(this.context);
+            this.game.playout(tempContext, null, -1.0, null, 0, -1, ThreadLocalRandom.current());
+        }
+
+        return RankUtils.utilities(tempContext);
+    }
+
+
+    private void propagate(final double[] utilities)
+    {
+        if(Node.isExpanded())
+    }
+
+    public Node selectFinalNode()
+    {
+        return null;
+    }
 
 }
