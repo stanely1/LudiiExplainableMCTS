@@ -86,7 +86,10 @@ public class Node
         context.game().apply(context, move);
 
         var newNode = new Node(this, move, context);
-        newNode.simulate();
+        
+        var utilities = newNode.simulate();
+        propagate(newNode, utilities);
+
         this.children.add(newNode);
     }
 
@@ -102,15 +105,44 @@ public class Node
         return RankUtils.utilities(tempContext);
     }
 
-
-    private void propagate(final double[] utilities)
+    private static void propagate(Node node, final double[] utilities)
     {
-        if(Node.isExpanded())
+        // if(this.parent == null) return;
+        while(node != null)
+        {
+            node.visitCount++;
+            for(var p = 1; p <= node.game.players().count(); p++)
+            {
+                node.scoreSums[p] += utilities[p];
+            }
+            node = node.parent;
+        }
     }
 
-    public Node selectFinalNode()
+    public Move selectFinalMove()
     {
-        return null;
+        Node bestChild = null;
+        int bestVisitCount = Integer.MIN_VALUE;
+        int numBestFound = 0;
+
+        for(final var childNode : this.children)
+        {
+            if(childNode.visitCount > bestVisitCount)
+            {
+                bestVisitCount = childNode.visitCount;
+                bestChild = childNode;
+                numBestFound = 1;
+            }
+            else if
+            (
+                childNode.visitCount == bestVisitCount &&
+                ThreadLocalRandom.current().nextInt() % ++numBestFound == 0
+            )
+            {
+                bestChild = childNode;
+            }
+        }
+        return bestChild.moveFromParent;
     }
 
 }

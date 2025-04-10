@@ -10,3 +10,7 @@ project/target/
 .scala-build/
 target/
 .vscode/
+bin/
+.classpath
+.project
+.settings/
