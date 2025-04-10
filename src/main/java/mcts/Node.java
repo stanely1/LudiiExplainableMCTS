@@ -75,7 +75,7 @@ public class Node
 
     public void expand()
     {
-        if(this.isExpanded())
+        if(this.isExpanded() || this.context.trial().over())
             return;
         
         final var move = this.unexpandedMoves.remove(
