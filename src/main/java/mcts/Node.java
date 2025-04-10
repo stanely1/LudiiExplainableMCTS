@@ -41,6 +41,11 @@ public class Node
         return unexpandedMoves.isEmpty();
     }
 
+    public boolean isTerminal()
+    {
+        return context.trial().over();
+    }
+
     public Node select() 
     {
         Node bestChild = null;
@@ -75,7 +80,7 @@ public class Node
 
     public void expand()
     {
-        if(this.isExpanded() || this.context.trial().over())
+        if(this.isExpanded() || this.isTerminal())
             return;
         
         final var move = this.unexpandedMoves.remove(
@@ -96,7 +101,7 @@ public class Node
     private double[] simulate()
     {
         Context tempContext = this.context;
-        if(!tempContext.trial().over())
+        if(!isTerminal())
         {
             tempContext = new Context(this.context);
             this.game.playout(tempContext, null, -1.0, null, 0, -1, ThreadLocalRandom.current());
