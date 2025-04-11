@@ -54,7 +54,6 @@ public class ExplainableMcts extends AI
 		{
 			Node current = root;
 
-			// Słabo gra??? smierdzi
 			while (!current.isTerminal() && current.isExpanded())
 			{
 				current = current.select();

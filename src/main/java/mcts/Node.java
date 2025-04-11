@@ -46,7 +46,7 @@ public class Node
         return context.trial().over();
     }
 
-    public Node select() 
+    public Node select()
     {
         Node bestChild = null;
         double bestValue = Double.NEGATIVE_INFINITY;
@@ -81,8 +81,12 @@ public class Node
     public void expand()
     {
         if(this.isExpanded() || this.isTerminal())
+        {
+            var utilities = simulate();
+            propagate(this, utilities);
             return;
-        
+        }
+
         final var move = this.unexpandedMoves.remove(
             ThreadLocalRandom.current().nextInt(this.unexpandedMoves.size()));
 
@@ -91,7 +95,7 @@ public class Node
         context.game().apply(context, move);
 
         var newNode = new Node(this, move, context);
-        
+
         var utilities = newNode.simulate();
         propagate(newNode, utilities);
 
@@ -112,7 +116,6 @@ public class Node
 
     private static void propagate(Node node, final double[] utilities)
     {
-        // if(this.parent == null) return;
         while(node != null)
         {
             node.visitCount++;
