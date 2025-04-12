@@ -66,11 +66,9 @@ public class Node {
         return bestChild;
     }
 
-    public void expand() {
+    public Node expand() {
         if (this.isExpanded() || this.isTerminal()) {
-            var utilities = simulate();
-            propagate(this, utilities);
-            return;
+            return this;
         }
 
         final var move = this.unexpandedMoves.remove(ThreadLocalRandom.current().nextInt(this.unexpandedMoves.size()));
@@ -80,14 +78,12 @@ public class Node {
         context.game().apply(context, move);
 
         var newNode = new Node(this, move, context);
-
-        var utilities = newNode.simulate();
-        propagate(newNode, utilities);
-
         this.children.add(newNode);
+
+        return newNode;
     }
 
-    private double[] simulate() {
+    public double[] simulate() {
         Context tempContext = this.context;
         if (!isTerminal()) {
             tempContext = new Context(this.context);
@@ -97,7 +93,7 @@ public class Node {
         return RankUtils.utilities(tempContext);
     }
 
-    private static void propagate(Node node, final double[] utilities) {
+    public static void propagate(Node node, final double[] utilities) {
         while (node != null) {
             node.visitCount++;
             for (var p = 1; p <= node.game.players().count(); p++) {

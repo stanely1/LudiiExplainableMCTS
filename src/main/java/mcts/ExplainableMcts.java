@@ -39,7 +39,11 @@ public class ExplainableMcts extends AI {
             while (!current.isTerminal() && current.isExpanded()) {
                 current = current.select();
             }
-            current.expand();
+
+            var newNode = current.expand();
+
+            var utilities = newNode.simulate();
+            Node.propagate(newNode, utilities);
 
             numIterations++;
         }
