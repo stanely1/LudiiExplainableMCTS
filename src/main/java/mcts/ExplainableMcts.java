@@ -1,20 +1,24 @@
 package mcts;
 
 import game.Game;
+import mcts.policies.selection.ISelectionPolicy;
 import other.AI;
 import other.context.Context;
 import other.move.Move;
 
 public class ExplainableMcts extends AI {
     // -------------------------------------------------------------------------
-    protected int player = -1;
+    private int player = -1;
+    private String analysisReport;
 
-    protected String analysisReport = "Explainable Mcts thinking...";
-
+    private final ISelectionPolicy selectionPolicy;
+    private final ISelectionPolicy finalMoveSelectionPolicy;
     // -------------------------------------------------------------------------
 
-    public ExplainableMcts() {
+    public ExplainableMcts(final ISelectionPolicy selectionPolicy, final ISelectionPolicy finalMoveSelectionPolicy) {
         this.friendlyName = "ExplainableMcts";
+        this.selectionPolicy = selectionPolicy;
+        this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
     }
 
     @Override
@@ -37,7 +41,7 @@ public class ExplainableMcts extends AI {
             Node current = root;
 
             while (!current.isTerminal() && current.isExpanded()) {
-                current = current.select();
+                current = current.select(this.selectionPolicy);
             }
 
             var newNode = current.expand();
@@ -48,8 +52,8 @@ public class ExplainableMcts extends AI {
             numIterations++;
         }
 
-        analysisReport = numIterations + " iterations";
-        return root.selectFinalMove();
+        this.analysisReport = "[" + this.friendlyName + "] " + numIterations + " iterations";
+        return root.select(this.finalMoveSelectionPolicy).getMoveFromParent();
     }
 
     @Override

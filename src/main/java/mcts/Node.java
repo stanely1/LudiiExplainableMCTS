@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import main.collections.FastArrayList;
+import mcts.policies.selection.ISelectionPolicy;
 import other.RankUtils;
 import other.context.Context;
 import other.move.Move;
@@ -35,6 +36,42 @@ public class Node {
         unexpandedMoves = new FastArrayList<Move>(game.moves(context).moves());
     }
 
+    /** State getters
+     * TODO: use @Getter annotation for less code
+     */
+    public Node getParent() {
+        return parent;
+    }
+
+    public Move getMoveFromParent() {
+        return moveFromParent;
+    }
+
+    public Context getContext() {
+        return context;
+    }
+
+    public Game getGame() {
+        return game;
+    }
+
+    public int getVisitCount() {
+        return visitCount;
+    }
+
+    public double[] getScoreSums() {
+        return scoreSums;
+    }
+
+    public List<Node> getChildren() {
+        return children;
+    }
+
+    public FastArrayList<Move> getUnexpandedMoves() {
+        return unexpandedMoves;
+    }
+
+    /** MCTS logic */
     public boolean isExpanded() {
         return unexpandedMoves.isEmpty();
     }
@@ -43,23 +80,19 @@ public class Node {
         return context.trial().over();
     }
 
-    public Node select() {
+    public Node select(final ISelectionPolicy selectionPolicy) {
         Node bestChild = null;
         double bestValue = Double.NEGATIVE_INFINITY;
-        final double twoParentLog = 2.0 * Math.log(Math.max(1, this.visitCount));
-        final int currentPlayerID = this.context.state().mover();
         int numBestFound = 0;
 
         for (final var childNode : this.children) {
-            final double exploit = childNode.scoreSums[currentPlayerID] / childNode.visitCount;
-            final double explore = Math.sqrt(twoParentLog / childNode.visitCount);
-            final double ucb1Value = exploit + explore;
+            final double childValue = selectionPolicy.getNodeValue(childNode);
 
-            if (ucb1Value > bestValue) {
-                bestValue = ucb1Value;
+            if (childValue > bestValue) {
+                bestValue = childValue;
                 bestChild = childNode;
                 numBestFound = 1;
-            } else if (ucb1Value == bestValue && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
+            } else if (childValue == bestValue && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
                 bestChild = childNode;
             }
         }
@@ -101,23 +134,5 @@ public class Node {
             }
             node = node.parent;
         }
-    }
-
-    public Move selectFinalMove() {
-        Node bestChild = null;
-        int bestVisitCount = Integer.MIN_VALUE;
-        int numBestFound = 0;
-
-        for (final var childNode : this.children) {
-            if (childNode.visitCount > bestVisitCount) {
-                bestVisitCount = childNode.visitCount;
-                bestChild = childNode;
-                numBestFound = 1;
-            } else if (childNode.visitCount == bestVisitCount
-                    && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
-                bestChild = childNode;
-            }
-        }
-        return bestChild.moveFromParent;
     }
 }

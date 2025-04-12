@@ -2,6 +2,8 @@ package main;
 
 import app.StartDesktopApp;
 import mcts.ExplainableMcts;
+import mcts.policies.selection.MostVisitedSelectionPolicy;
+import mcts.policies.selection.UCB1SelectionPolicy;
 import utils.AIRegistry;
 
 public class LaunchLudii {
@@ -9,7 +11,7 @@ public class LaunchLudii {
         if (!AIRegistry.registerAI(
                 "Explainable MCTS",
                 () -> {
-                    return new ExplainableMcts();
+                    return new ExplainableMcts(new UCB1SelectionPolicy(), new MostVisitedSelectionPolicy());
                 },
                 (game) -> {
                     return true;
