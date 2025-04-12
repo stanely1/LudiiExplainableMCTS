@@ -32,7 +32,8 @@ application {
 
 spotless {
     java {
-        googleJavaFormat()
+        // googleJavaFormat()
+        palantirJavaFormat()
         target 'src/**/*.java'
     }
 }

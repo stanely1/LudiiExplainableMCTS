@@ -1,30 +1,29 @@
 package mcts;
 
+import game.Game;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
-
-import game.Game;
-import other.move.Move;
+import main.collections.FastArrayList;
 import other.RankUtils;
 import other.context.Context;
-import main.collections.FastArrayList;
+import other.move.Move;
 
-public class Node
-{
+public class Node {
     private final Node parent;
     private final Move moveFromParent;
     private final Context context;
     private final Game game;
 
     private int visitCount = 0;
+
     /** For every player, sum of utilities / scores backpropagated through this node */
-	private final double[] scoreSums;
+    private final double[] scoreSums;
+
     private final List<Node> children = new ArrayList<Node>();
     private final FastArrayList<Move> unexpandedMoves;
 
-    public Node(final Node parent, final Move moveFromParent, final Context context)
-    {
+    public Node(final Node parent, final Move moveFromParent, final Context context) {
         this.parent = parent;
         this.moveFromParent = moveFromParent;
         this.context = context;
@@ -36,59 +35,45 @@ public class Node
         unexpandedMoves = new FastArrayList<Move>(game.moves(context).moves());
     }
 
-    public boolean isExpanded()
-    {
+    public boolean isExpanded() {
         return unexpandedMoves.isEmpty();
     }
 
-    public boolean isTerminal()
-    {
+    public boolean isTerminal() {
         return context.trial().over();
     }
 
-    public Node select()
-    {
+    public Node select() {
         Node bestChild = null;
         double bestValue = Double.NEGATIVE_INFINITY;
         final double twoParentLog = 2.0 * Math.log(Math.max(1, this.visitCount));
         final int currentPlayerID = this.context.state().mover();
         int numBestFound = 0;
 
-        for(final var childNode : this.children)
-        {
+        for (final var childNode : this.children) {
             final double exploit = childNode.scoreSums[currentPlayerID] / childNode.visitCount;
             final double explore = Math.sqrt(twoParentLog / childNode.visitCount);
             final double ucb1Value = exploit + explore;
 
-            if(ucb1Value > bestValue)
-            {
+            if (ucb1Value > bestValue) {
                 bestValue = ucb1Value;
                 bestChild = childNode;
                 numBestFound = 1;
-            }
-            else if
-            (
-                ucb1Value == bestValue &&
-                ThreadLocalRandom.current().nextInt() % ++numBestFound == 0
-            )
-            {
+            } else if (ucb1Value == bestValue && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
                 bestChild = childNode;
             }
         }
         return bestChild;
     }
 
-    public void expand()
-    {
-        if(this.isExpanded() || this.isTerminal())
-        {
+    public void expand() {
+        if (this.isExpanded() || this.isTerminal()) {
             var utilities = simulate();
             propagate(this, utilities);
             return;
         }
 
-        final var move = this.unexpandedMoves.remove(
-            ThreadLocalRandom.current().nextInt(this.unexpandedMoves.size()));
+        final var move = this.unexpandedMoves.remove(ThreadLocalRandom.current().nextInt(this.unexpandedMoves.size()));
 
         final Context context = new Context(this.context);
 
@@ -102,11 +87,9 @@ public class Node
         this.children.add(newNode);
     }
 
-    private double[] simulate()
-    {
+    private double[] simulate() {
         Context tempContext = this.context;
-        if(!isTerminal())
-        {
+        if (!isTerminal()) {
             tempContext = new Context(this.context);
             this.game.playout(tempContext, null, -1.0, null, 0, -1, ThreadLocalRandom.current());
         }
@@ -114,43 +97,31 @@ public class Node
         return RankUtils.utilities(tempContext);
     }
 
-    private static void propagate(Node node, final double[] utilities)
-    {
-        while(node != null)
-        {
+    private static void propagate(Node node, final double[] utilities) {
+        while (node != null) {
             node.visitCount++;
-            for(var p = 1; p <= node.game.players().count(); p++)
-            {
+            for (var p = 1; p <= node.game.players().count(); p++) {
                 node.scoreSums[p] += utilities[p];
             }
             node = node.parent;
         }
     }
 
-    public Move selectFinalMove()
-    {
+    public Move selectFinalMove() {
         Node bestChild = null;
         int bestVisitCount = Integer.MIN_VALUE;
         int numBestFound = 0;
 
-        for(final var childNode : this.children)
-        {
-            if(childNode.visitCount > bestVisitCount)
-            {
+        for (final var childNode : this.children) {
+            if (childNode.visitCount > bestVisitCount) {
                 bestVisitCount = childNode.visitCount;
                 bestChild = childNode;
                 numBestFound = 1;
-            }
-            else if
-            (
-                childNode.visitCount == bestVisitCount &&
-                ThreadLocalRandom.current().nextInt() % ++numBestFound == 0
-            )
-            {
+            } else if (childNode.visitCount == bestVisitCount
+                    && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
                 bestChild = childNode;
             }
         }
         return bestChild.moveFromParent;
     }
-
 }
