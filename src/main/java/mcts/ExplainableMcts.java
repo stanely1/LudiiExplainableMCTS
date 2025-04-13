@@ -1,6 +1,7 @@
 package mcts;
 
 import game.Game;
+import java.util.List;
 import mcts.policies.selection.ISelectionPolicy;
 import other.AI;
 import other.context.Context;
@@ -11,8 +12,12 @@ public class ExplainableMcts extends AI {
     private int player = -1;
     private String analysisReport;
 
+    private Node root;
+
     private final ISelectionPolicy selectionPolicy;
     private final ISelectionPolicy finalMoveSelectionPolicy;
+
+    private int lastActionHistorySize = 0;
     // -------------------------------------------------------------------------
 
     public ExplainableMcts(final ISelectionPolicy selectionPolicy, final ISelectionPolicy finalMoveSelectionPolicy) {
@@ -28,14 +33,14 @@ public class ExplainableMcts extends AI {
             final double maxSeconds,
             final int maxIterations,
             final int maxDepth) {
-        Node root = new Node(null, null, context);
 
         // We'll respect any limitations on max seconds and max iterations (don't care about max depth)
         final long stopTime =
                 (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L) : Long.MAX_VALUE;
         final int maxIts = (maxIterations >= 0) ? maxIterations : Integer.MAX_VALUE;
-
         int numIterations = 0;
+
+        initRoot(context);
 
         while (numIterations < maxIts && System.currentTimeMillis() < stopTime && !wantsInterrupt) {
             Node current = root;
@@ -59,6 +64,18 @@ public class ExplainableMcts extends AI {
     @Override
     public void initAI(final Game game, final int playerID) {
         this.player = playerID;
+
+        this.analysisReport = null;
+        this.root = null;
+        this.lastActionHistorySize = 0;
+    }
+
+    @Override
+    public void closeAI() {
+        this.player = -1;
+        this.analysisReport = null;
+        this.root = null;
+        this.lastActionHistorySize = 0;
     }
 
     @Override
@@ -73,5 +90,40 @@ public class ExplainableMcts extends AI {
     @Override
     public String generateAnalysisReport() {
         return analysisReport;
+    }
+
+    private void initRoot(final Context context) {
+        // Tree reuse
+        if (root != null) {
+            // get action history for current state
+            final List<Move> actionHistory = context.trial().generateCompleteMovesList();
+
+            // calculate number of moves we need to apply from previous root
+            int offsetActionToTraverse = actionHistory.size() - lastActionHistorySize;
+
+            if (offsetActionToTraverse < 0) {
+                root = null;
+            }
+
+            // apply moves to find new root
+            while (offsetActionToTraverse > 0) {
+                final Move move = actionHistory.get(actionHistory.size() - offsetActionToTraverse);
+                root = root.getChildByMove(move);
+
+                if (root == null) {
+                    break;
+                }
+
+                --offsetActionToTraverse;
+            }
+        }
+
+        if (root == null) {
+            root = new Node(null, null, context);
+        } else {
+            root.detachFromParent();
+        }
+
+        lastActionHistorySize = context.trial().numMoves();
     }
 }

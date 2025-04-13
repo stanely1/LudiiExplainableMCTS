@@ -11,8 +11,9 @@ import other.context.Context;
 import other.move.Move;
 
 public class Node {
-    private final Node parent;
-    private final Move moveFromParent;
+    private Node parent;
+    private Move moveFromParent;
+
     private final Context context;
     private final Game game;
 
@@ -71,7 +72,21 @@ public class Node {
         return unexpandedMoves;
     }
 
+    public Node getChildByMove(final Move move) {
+        for (final var childNode : this.children) {
+            if (childNode.moveFromParent.equals(move)) {
+                return childNode;
+            }
+        }
+        return null;
+    }
+
     /** MCTS logic */
+    public void detachFromParent() {
+        this.parent = null;
+        this.moveFromParent = null;
+    }
+
     public boolean isExpanded() {
         return unexpandedMoves.isEmpty();
     }
