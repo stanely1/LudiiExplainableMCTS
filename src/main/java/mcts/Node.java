@@ -22,7 +22,7 @@ public class Node {
     /** For every player, sum of utilities / scores backpropagated through this node */
     private final double[] scoreSums;
 
-    private final List<Node> children = new ArrayList<Node>();
+    private final List<Node> children = new ArrayList<>();
     private final FastArrayList<Move> unexpandedMoves;
 
     public Node(final Node parent, final Move moveFromParent, final Context context) {
@@ -34,7 +34,7 @@ public class Node {
 
         // For simplicity, we just take ALL legal moves.
         // This means we do not support simultaneous-move games.
-        unexpandedMoves = new FastArrayList<Move>(game.moves(context).moves());
+        this.unexpandedMoves = new FastArrayList<>(game.moves(context).moves());
     }
 
     /** State getters
@@ -121,11 +121,11 @@ public class Node {
 
         final var move = this.unexpandedMoves.remove(ThreadLocalRandom.current().nextInt(this.unexpandedMoves.size()));
 
-        final Context context = new Context(this.context);
+        final Context newContext = new Context(this.context);
 
-        context.game().apply(context, move);
+        newContext.game().apply(newContext, move);
 
-        var newNode = new Node(this, move, context);
+        var newNode = new Node(this, move, newContext);
         this.children.add(newNode);
 
         return newNode;
@@ -141,7 +141,8 @@ public class Node {
         return RankUtils.utilities(tempContext);
     }
 
-    public static void propagate(Node node, final double[] utilities) {
+    public void propagate(final double[] utilities) {
+        Node node = this;
         while (node != null) {
             node.visitCount++;
             for (var p = 1; p <= node.game.players().count(); p++) {

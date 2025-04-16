@@ -18,6 +18,7 @@ public class ExplainableMcts extends AI {
     private final ISelectionPolicy finalMoveSelectionPolicy;
 
     private int lastActionHistorySize = 0;
+    private double lastMoveValue = 0.0;
     // -------------------------------------------------------------------------
 
     public ExplainableMcts(final ISelectionPolicy selectionPolicy, final ISelectionPolicy finalMoveSelectionPolicy) {
@@ -52,13 +53,19 @@ public class ExplainableMcts extends AI {
             var newNode = current.expand();
 
             var utilities = newNode.simulate();
-            Node.propagate(newNode, utilities);
+            newNode.propagate(utilities);
 
             numIterations++;
         }
 
-        this.analysisReport = "[" + this.friendlyName + "] " + numIterations + " iterations";
-        return root.select(this.finalMoveSelectionPolicy).getMoveFromParent();
+        final Node selectedNode = root.select(this.finalMoveSelectionPolicy);
+
+        this.lastMoveValue = selectedNode.getScoreSums()[this.player] / selectedNode.getVisitCount();
+        this.analysisReport = String.format(
+                "[%s] Performed %d iterations, selected node: {visits: %d, score: %f}",
+                this.friendlyName, numIterations, selectedNode.getVisitCount(), this.lastMoveValue);
+
+        return selectedNode.getMoveFromParent();
     }
 
     @Override
@@ -68,6 +75,7 @@ public class ExplainableMcts extends AI {
         this.analysisReport = null;
         this.root = null;
         this.lastActionHistorySize = 0;
+        this.lastMoveValue = 0.0;
     }
 
     @Override
@@ -76,15 +84,17 @@ public class ExplainableMcts extends AI {
         this.analysisReport = null;
         this.root = null;
         this.lastActionHistorySize = 0;
+        this.lastMoveValue = 0.0;
     }
 
     @Override
     public boolean supportsGame(final Game game) {
-        if (game.isStochasticGame()) return false;
+        return !game.isStochasticGame() && game.isAlternatingMoveGame();
+    }
 
-        if (!game.isAlternatingMoveGame()) return false;
-
-        return true;
+    @Override
+    public double estimateValue() {
+        return lastMoveValue;
     }
 
     @Override
