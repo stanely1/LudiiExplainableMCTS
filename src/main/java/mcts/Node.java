@@ -11,6 +11,9 @@ import other.context.Context;
 import other.move.Move;
 
 public class Node {
+    private static final double WIN_SCORE = 1.0;
+    private static final double LOSS_SCORE = -WIN_SCORE;
+
     private Node parent;
     private Move moveFromParent;
 
@@ -22,6 +25,11 @@ public class Node {
     /** For every player, sum of utilities / scores backpropagated through this node */
     private final double[] scoreSums;
 
+    /** Scores from range [-1, 1], 1 means win, -1 loss */
+    private final double[] pessimisticScores;
+
+    private final double[] optimisticScores;
+
     private final List<Node> children = new ArrayList<>();
     private final FastArrayList<Move> unexpandedMoves;
 
@@ -30,7 +38,18 @@ public class Node {
         this.moveFromParent = moveFromParent;
         this.context = context;
         this.game = context.game();
-        this.scoreSums = new double[game.players().count() + 1];
+
+        final var playerCount = game.players().count();
+        this.scoreSums = new double[playerCount + 1];
+
+        // if (useScoreBounds)
+        this.pessimisticScores = new double[playerCount + 1];
+        this.optimisticScores = new double[playerCount + 1];
+
+        for (var i = 1; i <= playerCount; i++) {
+            this.pessimisticScores[i] = LOSS_SCORE;
+            this.optimisticScores[i] = WIN_SCORE;
+        }
 
         // For simplicity, we just take ALL legal moves.
         // This means we do not support simultaneous-move games.
@@ -60,8 +79,16 @@ public class Node {
         return visitCount;
     }
 
-    public double[] getScoreSums() {
-        return scoreSums;
+    public double getScoreSum(final int player) {
+        return scoreSums[player];
+    }
+
+    public double getPessimisticScore(final int player) {
+        return pessimisticScores[player];
+    }
+
+    public double getOptimisticScore(final int player) {
+        return optimisticScores[player];
     }
 
     public List<Node> getChildren() {
@@ -93,6 +120,18 @@ public class Node {
 
     public boolean isTerminal() {
         return context.trial().over();
+    }
+
+    public boolean isSolved(final int player) {
+        return getPessimisticScore(player) == getOptimisticScore(player);
+    }
+
+    public boolean isWin(final int player) {
+        return getPessimisticScore(player) == WIN_SCORE;
+    }
+
+    public boolean isLoss(final int player) {
+        return getOptimisticScore(player) == LOSS_SCORE;
     }
 
     public Node select(final ISelectionPolicy selectionPolicy) {

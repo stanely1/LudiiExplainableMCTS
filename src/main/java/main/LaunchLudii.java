@@ -8,10 +8,13 @@ import utils.AIRegistry;
 
 public class LaunchLudii {
     public static void main(final String[] args) {
+        final boolean useScoreBounds = true;
+
         if (!AIRegistry.registerAI(
                 "Explainable MCTS",
                 () -> {
-                    return new ExplainableMcts(new UCB1SelectionPolicy(), new MostVisitedSelectionPolicy());
+                    return new ExplainableMcts(
+                            new UCB1SelectionPolicy(), new MostVisitedSelectionPolicy(), useScoreBounds);
                 },
                 (game) -> {
                     return true;

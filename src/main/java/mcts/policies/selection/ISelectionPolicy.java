@@ -8,6 +8,8 @@ public interface ISelectionPolicy {
     // it's done that way in Ludii
     // public Node select(Node node);
 
+    public String getName();
+
     // TODO: INode ???
     public double getNodeValue(Node node);
 }

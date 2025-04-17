@@ -3,6 +3,8 @@ package mcts;
 import game.Game;
 import java.util.List;
 import mcts.policies.selection.ISelectionPolicy;
+import mcts.policies.selection.ScoreBoundedFinalMoveSelectionPolicy;
+import mcts.policies.selection.ScoreBoundedSelectionPolicy;
 import other.AI;
 import other.context.Context;
 import other.move.Move;
@@ -17,14 +19,33 @@ public class ExplainableMcts extends AI {
     private final ISelectionPolicy selectionPolicy;
     private final ISelectionPolicy finalMoveSelectionPolicy;
 
+    private final boolean useScoreBounds;
+
     private int lastActionHistorySize = 0;
     private double lastMoveValue = 0.0;
     // -------------------------------------------------------------------------
 
-    public ExplainableMcts(final ISelectionPolicy selectionPolicy, final ISelectionPolicy finalMoveSelectionPolicy) {
+    public ExplainableMcts(
+            final ISelectionPolicy selectionPolicy,
+            final ISelectionPolicy finalMoveSelectionPolicy,
+            final boolean useScoreBounds) {
         this.friendlyName = "ExplainableMcts";
-        this.selectionPolicy = selectionPolicy;
-        this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
+        this.useScoreBounds = useScoreBounds;
+
+        if (useScoreBounds) {
+            this.selectionPolicy = new ScoreBoundedSelectionPolicy(selectionPolicy);
+            this.finalMoveSelectionPolicy = new ScoreBoundedFinalMoveSelectionPolicy(finalMoveSelectionPolicy);
+        } else {
+            this.selectionPolicy = selectionPolicy;
+            this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
+        }
+
+        System.err.println(String.format(
+                "[%s] use score bounds: %b, selection policy: %s, final move selection policy: %s",
+                this.friendlyName,
+                useScoreBounds,
+                this.selectionPolicy.getName(),
+                this.finalMoveSelectionPolicy.getName()));
     }
 
     @Override
@@ -60,7 +81,7 @@ public class ExplainableMcts extends AI {
 
         final Node selectedNode = root.select(this.finalMoveSelectionPolicy);
 
-        this.lastMoveValue = selectedNode.getScoreSums()[this.player] / selectedNode.getVisitCount();
+        this.lastMoveValue = selectedNode.getScoreSum(this.player) / selectedNode.getVisitCount();
         this.analysisReport = String.format(
                 "[%s] Performed %d iterations, selected node: {visits: %d, score: %f}",
                 this.friendlyName, numIterations, selectedNode.getVisitCount(), this.lastMoveValue);
