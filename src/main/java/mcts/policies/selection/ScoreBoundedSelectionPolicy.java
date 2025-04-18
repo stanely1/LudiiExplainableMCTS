@@ -17,7 +17,7 @@ public final class ScoreBoundedSelectionPolicy implements ISelectionPolicy {
     @Override
     public double getNodeValue(Node node) {
         final var parentNode = node.getParent();
-        final var player = parentNode.getContext().state().mover();
+        final var player = parentNode.getPlayer();
 
         if (node.getOptimisticScore(player) <= parentNode.getPessimisticScore(player)) {
             return Double.NEGATIVE_INFINITY;

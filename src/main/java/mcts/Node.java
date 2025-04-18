@@ -108,6 +108,10 @@ public class Node {
         return null;
     }
 
+    public int getPlayer() {
+        return context.state().mover();
+    }
+
     /** MCTS logic */
     public void detachFromParent() {
         this.parent = null;
@@ -154,7 +158,7 @@ public class Node {
     }
 
     public Node expand() {
-        if (this.isExpanded() || this.isTerminal()) {
+        if (this.isExpanded() || this.isTerminal() || this.isSolved(this.getPlayer())) {
             return this;
         }
 
@@ -171,6 +175,10 @@ public class Node {
     }
 
     public double[] simulate() {
+        if (this.isSolved(this.getPlayer())) {
+            return pessimisticScores;
+        }
+
         Context tempContext = this.context;
         if (!isTerminal()) {
             tempContext = new Context(this.context);
@@ -180,12 +188,56 @@ public class Node {
         return RankUtils.utilities(tempContext);
     }
 
-    public void propagate(final double[] utilities) {
+    public void propagate(final double[] utilities, final boolean useScoreBounds) {
+        if (useScoreBounds && this.isTerminal()) {
+            propagateScoreBounds(utilities);
+        }
+
         Node node = this;
         while (node != null) {
             node.visitCount++;
-            for (var p = 1; p <= node.game.players().count(); p++) {
+            for (var p = 1; p <= this.game.players().count(); p++) {
                 node.scoreSums[p] += utilities[p];
+            }
+            node = node.parent;
+        }
+    }
+
+    private void propagateScoreBounds(final double[] utilities) {
+        final var playerCount = this.game.players().count();
+
+        for (var p = 1; p <= playerCount; p++) {
+            this.pessimisticScores[p] = utilities[p];
+            this.optimisticScores[p] = utilities[p];
+        }
+
+        Node node = this.parent;
+        while (node != null) {
+            for (var p = 1; p <= this.game.players().count(); p++) {
+                final var player = p;
+
+                if (player == node.getPlayer()) {
+                    node.pessimisticScores[player] = node.children.stream()
+                            .mapToDouble(child -> child.getPessimisticScore(player))
+                            .max()
+                            .orElse(LOSS_SCORE);
+                } else if (node.isExpanded()) {
+                    node.pessimisticScores[player] = node.children.stream()
+                            .mapToDouble(child -> child.getPessimisticScore(player))
+                            .min()
+                            .orElse(LOSS_SCORE);
+                } else {
+                    node.pessimisticScores[player] = LOSS_SCORE;
+                }
+
+                if (node.isExpanded()) {
+                    node.optimisticScores[player] = node.children.stream()
+                            .mapToDouble(child -> child.getOptimisticScore(player))
+                            .max()
+                            .orElse(WIN_SCORE);
+                } else {
+                    node.optimisticScores[player] = WIN_SCORE;
+                }
             }
             node = node.parent;
         }

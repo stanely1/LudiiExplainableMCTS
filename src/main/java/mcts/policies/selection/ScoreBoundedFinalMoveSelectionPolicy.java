@@ -17,7 +17,7 @@ public final class ScoreBoundedFinalMoveSelectionPolicy implements ISelectionPol
     @Override
     public double getNodeValue(Node node) {
         final var parentNode = node.getParent();
-        final var player = parentNode.getContext().state().mover();
+        final var player = parentNode.getPlayer();
 
         if (node.isLoss(player)) {
             // don't select losing move

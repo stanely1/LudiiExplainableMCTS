@@ -40,7 +40,7 @@ public class ExplainableMcts extends AI {
             this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
         }
 
-        System.err.println(String.format(
+        System.out.println(String.format(
                 "[%s] use score bounds: %b, selection policy: %s, final move selection policy: %s",
                 this.friendlyName,
                 useScoreBounds,
@@ -64,17 +64,22 @@ public class ExplainableMcts extends AI {
 
         initRoot(context);
 
-        while (numIterations < maxIts && System.currentTimeMillis() < stopTime && !wantsInterrupt) {
+        while (numIterations < maxIts
+                && System.currentTimeMillis() < stopTime
+                && !wantsInterrupt
+                && !root.isSolved(this.player)) {
             Node current = root;
+            int currentPlayer = this.player;
 
-            while (!current.isTerminal() && current.isExpanded()) {
+            while (!current.isTerminal() && current.isExpanded() && !current.isSolved(currentPlayer)) {
                 current = current.select(this.selectionPolicy);
+                currentPlayer = current.getPlayer();
             }
 
             var newNode = current.expand();
 
             var utilities = newNode.simulate();
-            newNode.propagate(utilities);
+            newNode.propagate(utilities, this.useScoreBounds);
 
             numIterations++;
         }
@@ -83,8 +88,13 @@ public class ExplainableMcts extends AI {
 
         this.lastMoveValue = selectedNode.getScoreSum(this.player) / selectedNode.getVisitCount();
         this.analysisReport = String.format(
-                "[%s] Performed %d iterations, selected node: {visits: %d, score: %f}",
-                this.friendlyName, numIterations, selectedNode.getVisitCount(), this.lastMoveValue);
+                "[%s] Performed %d iterations, selected node: {visits: %d, score: %f, pess: %f, opt: %f}",
+                this.friendlyName,
+                numIterations,
+                selectedNode.getVisitCount(),
+                this.lastMoveValue,
+                selectedNode.getPessimisticScore(this.player),
+                selectedNode.getOptimisticScore(this.player));
 
         return selectedNode.getMoveFromParent();
     }
