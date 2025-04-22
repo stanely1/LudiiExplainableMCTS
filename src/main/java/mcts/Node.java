@@ -168,7 +168,7 @@ public class Node {
 
         newContext.game().apply(newContext, move);
 
-        var newNode = new Node(this, move, newContext);
+        var newNode = new Node(this, newContext.trial().lastMove(), newContext);
         this.children.add(newNode);
 
         return newNode;

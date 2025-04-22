@@ -12,7 +12,6 @@ import other.move.Move;
 public class ExplainableMcts extends AI {
     // -------------------------------------------------------------------------
     private int player = -1;
-    private String analysisReport;
 
     private Node root;
 
@@ -22,7 +21,9 @@ public class ExplainableMcts extends AI {
     private final boolean useScoreBounds;
 
     private int lastActionHistorySize = 0;
+    private int lastNumIterations = 0;
     private double lastMoveValue = 0.0;
+    private Node lastSelectedNode;
     // -------------------------------------------------------------------------
 
     public ExplainableMcts(
@@ -86,15 +87,9 @@ public class ExplainableMcts extends AI {
 
         final Node selectedNode = root.select(this.finalMoveSelectionPolicy);
 
+        this.lastNumIterations = numIterations;
         this.lastMoveValue = selectedNode.getScoreSum(this.player) / selectedNode.getVisitCount();
-        this.analysisReport = String.format(
-                "[%s] Performed %d iterations, selected node: {visits: %d, score: %f, pess: %f, opt: %f}",
-                this.friendlyName,
-                numIterations,
-                selectedNode.getVisitCount(),
-                this.lastMoveValue,
-                selectedNode.getPessimisticScore(this.player),
-                selectedNode.getOptimisticScore(this.player));
+        this.lastSelectedNode = selectedNode;
 
         return selectedNode.getMoveFromParent();
     }
@@ -103,19 +98,21 @@ public class ExplainableMcts extends AI {
     public void initAI(final Game game, final int playerID) {
         this.player = playerID;
 
-        this.analysisReport = null;
         this.root = null;
         this.lastActionHistorySize = 0;
+        this.lastNumIterations = 0;
         this.lastMoveValue = 0.0;
+        this.lastSelectedNode = null;
     }
 
     @Override
     public void closeAI() {
         this.player = -1;
-        this.analysisReport = null;
         this.root = null;
         this.lastActionHistorySize = 0;
+        this.lastNumIterations = 0;
         this.lastMoveValue = 0.0;
+        this.lastSelectedNode = null;
     }
 
     @Override
@@ -130,6 +127,33 @@ public class ExplainableMcts extends AI {
 
     @Override
     public String generateAnalysisReport() {
+        String analysisReport = String.format(
+                "[%s] Performed %d iterations, selected node: {visits: %d, ",
+                this.friendlyName, this.lastNumIterations, this.lastSelectedNode.getVisitCount());
+
+        if (this.useScoreBounds) {
+            if (this.lastSelectedNode.isSolved(this.player)) {
+                analysisReport += String.format(
+                        "solved node with score %f", this.lastSelectedNode.getPessimisticScore(this.player));
+
+                if (this.lastSelectedNode.isWin(this.player)) {
+                    analysisReport += " (win)}";
+                } else if (this.lastSelectedNode.isLoss(this.player)) {
+                    analysisReport += " (loss)}";
+                } else {
+                    analysisReport += "}";
+                }
+            } else {
+                analysisReport += String.format(
+                        "score: %f, pess: %f, opt: %f}",
+                        this.lastMoveValue,
+                        this.lastSelectedNode.getPessimisticScore(this.player),
+                        this.lastSelectedNode.getOptimisticScore(this.player));
+            }
+        } else {
+            analysisReport += String.format("score: %f}", this.lastMoveValue);
+        }
+
         return analysisReport;
     }
 
