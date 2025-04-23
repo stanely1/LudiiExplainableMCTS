@@ -22,13 +22,19 @@ public class Node {
 
     private int visitCount = 0;
 
-    /** For every player, sum of utilities / scores backpropagated through this node */
+    /**
+     * For every player, sum of utilities / scores backpropagated through this node
+     */
     private final double[] scoreSums;
 
     /** Scores from range [-1, 1], 1 means win, -1 loss */
     private final double[] pessimisticScores;
 
     private final double[] optimisticScores;
+
+    /** ALL MOVES AS FIRST */
+    private final double[] scoreAMAF;
+    private int visitCountAMAF = 0;
 
     private final List<Node> children = new ArrayList<>();
     private final FastArrayList<Move> unexpandedMoves;
@@ -41,6 +47,7 @@ public class Node {
 
         final var playerCount = game.players().count();
         this.scoreSums = new double[playerCount + 1];
+        this.scoreAMAF = new double[playerCount + 1];
 
         // if (useScoreBounds)
         this.pessimisticScores = new double[playerCount + 1];
@@ -56,7 +63,8 @@ public class Node {
         this.unexpandedMoves = new FastArrayList<>(game.moves(context).moves());
     }
 
-    /** State getters
+    /**
+     * State getters
      * TODO: use @Getter annotation for less code
      */
     public Node getParent() {
@@ -79,8 +87,16 @@ public class Node {
         return visitCount;
     }
 
+    public int getVisitCountAMAF() {
+        return visitCountAMAF;
+    }
+
     public double getScoreSum(final int player) {
         return scoreSums[player];
+    }
+
+    public double getScoreAMAF(final int player) {
+        return scoreAMAF[player];
     }
 
     public double getPessimisticScore(final int player) {
