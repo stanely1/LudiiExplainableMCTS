@@ -34,6 +34,7 @@ public class Node {
 
     /** ALL MOVES AS FIRST */
     private final double[] scoreAMAF;
+
     private int visitCountAMAF = 0;
 
     private final List<Node> children = new ArrayList<>();
