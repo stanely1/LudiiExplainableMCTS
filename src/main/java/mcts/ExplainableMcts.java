@@ -45,9 +45,10 @@ public class ExplainableMcts extends AI {
         }
 
         System.out.println(String.format(
-                "[%s] use score bounds: %b, selection policy: %s, final move selection policy: %s",
+                "[%s] use score bounds: %b, use AMAF: %b, selection policy: %s, final move selection policy: %s",
                 this.friendlyName,
-                useScoreBounds,
+                this.useScoreBounds,
+                this.useAMAF,
                 this.selectionPolicy.getName(),
                 this.finalMoveSelectionPolicy.getName()));
     }
@@ -60,8 +61,7 @@ public class ExplainableMcts extends AI {
             final int maxIterations,
             final int maxDepth) {
 
-        // We'll respect any limitations on max seconds and max iterations (don't care
-        // about max depth)
+        // We'll respect any limitations on max seconds and max iterations (don't care about max depth)
         final long stopTime =
                 (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L) : Long.MAX_VALUE;
         final int maxIts = (maxIterations >= 0) ? maxIterations : Integer.MAX_VALUE;
@@ -81,8 +81,8 @@ public class ExplainableMcts extends AI {
                 currentPlayer = current.getPlayer();
             }
 
-            var newNode = current.expand();
-            SimulationResult simRes = newNode.simulate();
+            final Node newNode = current.expand();
+            final SimulationResult simRes = newNode.simulate();
             newNode.propagate(simRes, this.useScoreBounds, this.useAMAF);
 
             numIterations++;
@@ -130,33 +130,38 @@ public class ExplainableMcts extends AI {
 
     @Override
     public String generateAnalysisReport() {
-        String analysisReport = String.format(
-                "[%s] Performed %d iterations, selected node: {visits: %d, ",
+        String analysisReportBase = String.format(
+                "[%s] Performed %d iterations, selected node: {visits: %d",
                 this.friendlyName, this.lastNumIterations, this.lastSelectedNode.getVisitCount());
+
+        String analysisReport = analysisReportBase + String.format(", score: %f", this.lastMoveValue);
+
+        if (this.useAMAF) {
+            analysisReport += String.format(
+                    ", AMAF visits: %d, AMAF score: %f",
+                    this.lastSelectedNode.getVisitCountAMAF(), this.lastSelectedNode.getScoreAMAF(this.player));
+        }
 
         if (this.useScoreBounds) {
             if (this.lastSelectedNode.isSolved(this.player)) {
-                analysisReport += String.format(
-                        "solved node with score %f", this.lastSelectedNode.getPessimisticScore(this.player));
+                analysisReport = analysisReportBase
+                        + String.format(
+                                ", solved node with score %f", this.lastSelectedNode.getPessimisticScore(this.player));
 
                 if (this.lastSelectedNode.isWin(this.player)) {
-                    analysisReport += " (win)}";
+                    analysisReport += " (win)";
                 } else if (this.lastSelectedNode.isLoss(this.player)) {
-                    analysisReport += " (loss)}";
-                } else {
-                    analysisReport += "}";
+                    analysisReport += " (loss)";
                 }
             } else {
                 analysisReport += String.format(
-                        "score: %f, pess: %f, opt: %f}",
-                        this.lastMoveValue,
+                        ", pess: %f, opt: %f",
                         this.lastSelectedNode.getPessimisticScore(this.player),
                         this.lastSelectedNode.getOptimisticScore(this.player));
             }
-        } else {
-            analysisReport += String.format("score: %f}", this.lastMoveValue);
         }
 
+        analysisReport += "}";
         return analysisReport;
     }
 

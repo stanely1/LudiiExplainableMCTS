@@ -209,7 +209,7 @@ public class Node {
     }
 
     public void propagate(final SimulationResult simRes, final boolean useScoreBounds, final boolean useAMAF) {
-        var utilities = simRes.utilities();
+        final var utilities = simRes.utilities();
 
         if (useScoreBounds && this.isTerminal()) {
             propagateScoreBounds(utilities);
@@ -270,19 +270,19 @@ public class Node {
     }
 
     private void propagateScoreAMAF(SimulationResult simRes) {
-        Context leafContext = simRes.context();
-        var utilities = simRes.utilities();
+        final var leafContext = simRes.context();
+        final var utilities = simRes.utilities();
+
         // get action history for current state
-        final List<Move> fullActionHistory = leafContext.trial().generateCompleteMovesList();
-        var firstActionIndex = context.trial().numMoves();
-        var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
+        final var fullActionHistory = leafContext.trial().generateCompleteMovesList();
+        final var firstActionIndex = context.trial().numMoves();
+        final var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
 
         // naiwne rozwiazanie, bez haszowania ruchów
         Node tempNode = this.parent;
         while (tempNode != null) {
-            for (var act : actionHistory) {
-
-                var child = tempNode.getChildByMove(act);
+            for (final var act : actionHistory) {
+                final var child = tempNode.getChildByMove(act);
                 if (child != null) {
                     child.visitCountAMAF++;
                     for (var p = 1; p <= this.game.players().count(); p++) {
