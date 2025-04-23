@@ -191,18 +191,21 @@ public class Node {
         return newNode;
     }
 
-    public double[] simulate() {
+    public record SimulationResult(Context context, double[] utilities) {}
+
+    public SimulationResult simulate() {
+        Context tempContext = this.context;
+
         if (this.isSolved(this.getPlayer())) {
-            return pessimisticScores;
+            return new SimulationResult(tempContext, pessimisticScores);
         }
 
-        Context tempContext = this.context;
         if (!isTerminal()) {
             tempContext = new Context(this.context);
             this.game.playout(tempContext, null, -1.0, null, 0, -1, ThreadLocalRandom.current());
         }
 
-        return RankUtils.utilities(tempContext);
+        return new SimulationResult(tempContext, RankUtils.utilities(tempContext));
     }
 
     public void propagate(final double[] utilities, final boolean useScoreBounds) {

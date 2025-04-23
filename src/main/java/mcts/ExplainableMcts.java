@@ -2,6 +2,7 @@ package mcts;
 
 import game.Game;
 import java.util.List;
+import mcts.Node.SimulationResult;
 import mcts.policies.selection.ISelectionPolicy;
 import mcts.policies.selection.ScoreBoundedFinalMoveSelectionPolicy;
 import mcts.policies.selection.ScoreBoundedSelectionPolicy;
@@ -57,7 +58,8 @@ public class ExplainableMcts extends AI {
             final int maxIterations,
             final int maxDepth) {
 
-        // We'll respect any limitations on max seconds and max iterations (don't care about max depth)
+        // We'll respect any limitations on max seconds and max iterations (don't care
+        // about max depth)
         final long stopTime =
                 (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L) : Long.MAX_VALUE;
         final int maxIts = (maxIterations >= 0) ? maxIterations : Integer.MAX_VALUE;
@@ -78,8 +80,8 @@ public class ExplainableMcts extends AI {
             }
 
             var newNode = current.expand();
-
-            var utilities = newNode.simulate();
+            SimulationResult res = newNode.simulate();
+            var utilities = res.utilities();
             newNode.propagate(utilities, this.useScoreBounds);
 
             numIterations++;
