@@ -208,9 +208,15 @@ public class Node {
         return new SimulationResult(tempContext, RankUtils.utilities(tempContext));
     }
 
-    public void propagate(final double[] utilities, final boolean useScoreBounds) {
+    public void propagate(final SimulationResult simRes, final boolean useScoreBounds, final boolean useAMAF) {
+        var utilities = simRes.utilities();
+
         if (useScoreBounds && this.isTerminal()) {
             propagateScoreBounds(utilities);
+        }
+
+        if (useAMAF) {
+            propagateScoreAMAF(simRes);
         }
 
         Node node = this;
@@ -260,6 +266,31 @@ public class Node {
                 }
             }
             node = node.parent;
+        }
+    }
+
+    private void propagateScoreAMAF(SimulationResult simRes) {
+        Context leafContext = simRes.context();
+        var utilities = simRes.utilities();
+        // get action history for current state
+        final List<Move> fullActionHistory = leafContext.trial().generateCompleteMovesList();
+        var firstActionIndex = context.trial().numMoves();
+        var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
+
+        // naiwne rozwiazanie, bez haszowania ruchów
+        Node tempNode = this.parent;
+        while (tempNode != null) {
+            for (var act : actionHistory) {
+
+                var child = tempNode.getChildByMove(act);
+                if (child != null) {
+                    child.visitCountAMAF++;
+                    for (var p = 1; p <= this.game.players().count(); p++) {
+                        child.scoreAMAF[p] += utilities[p];
+                    }
+                }
+            }
+            tempNode = tempNode.parent;
         }
     }
 }

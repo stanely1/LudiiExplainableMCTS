@@ -19,7 +19,7 @@ public class ExplainableMcts extends AI {
     private final ISelectionPolicy selectionPolicy;
     private final ISelectionPolicy finalMoveSelectionPolicy;
 
-    private final boolean useScoreBounds;
+    private final boolean useScoreBounds, useAMAF;
 
     private int lastActionHistorySize = 0;
     private int lastNumIterations = 0;
@@ -30,9 +30,11 @@ public class ExplainableMcts extends AI {
     public ExplainableMcts(
             final ISelectionPolicy selectionPolicy,
             final ISelectionPolicy finalMoveSelectionPolicy,
-            final boolean useScoreBounds) {
+            final boolean useScoreBounds,
+            final boolean useAMAF) {
         this.friendlyName = "ExplainableMcts";
         this.useScoreBounds = useScoreBounds;
+        this.useAMAF = useAMAF;
 
         if (useScoreBounds) {
             this.selectionPolicy = new ScoreBoundedSelectionPolicy(selectionPolicy);
@@ -80,9 +82,8 @@ public class ExplainableMcts extends AI {
             }
 
             var newNode = current.expand();
-            SimulationResult res = newNode.simulate();
-            var utilities = res.utilities();
-            newNode.propagate(utilities, this.useScoreBounds);
+            SimulationResult simRes = newNode.simulate();
+            newNode.propagate(simRes, this.useScoreBounds, this.useAMAF);
 
             numIterations++;
         }
