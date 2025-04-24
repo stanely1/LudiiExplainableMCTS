@@ -2,10 +2,9 @@ package main;
 
 import app.StartDesktopApp;
 import mcts.ExplainableMcts;
+import mcts.policies.selection.GraveSelectionPolicy;
 import mcts.policies.selection.ISelectionPolicy;
 import mcts.policies.selection.MostVisitedSelectionPolicy;
-import mcts.policies.selection.GraveSelectionPolicy;
-import mcts.policies.selection.UCB1SelectionPolicy;
 import utils.AIRegistry;
 
 public class LaunchLudii {
@@ -26,8 +25,7 @@ public class LaunchLudii {
                 },
                 (game) -> {
                     return true;
-                }))
-            System.err.println("WARNING! Failed to register AI because one with that name already existed!");
+                })) System.err.println("WARNING! Failed to register AI because one with that name already existed!");
 
         StartDesktopApp.main(new String[0]);
     }
