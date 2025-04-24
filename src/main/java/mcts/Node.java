@@ -275,12 +275,13 @@ public class Node {
 
         // get action history for current state
         final var fullActionHistory = leafContext.trial().generateCompleteMovesList();
-        final var firstActionIndex = context.trial().numMoves();
-        final var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
 
         // naiwne rozwiazanie, bez haszowania ruchów
         Node tempNode = this.parent;
         while (tempNode != null) {
+            final var firstActionIndex = tempNode.context.trial().numMoves();
+            final var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
+
             for (final var act : actionHistory) {
                 final var child = tempNode.getChildByMove(act);
                 if (child != null) {

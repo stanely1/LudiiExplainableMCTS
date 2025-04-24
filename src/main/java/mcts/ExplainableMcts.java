@@ -139,7 +139,8 @@ public class ExplainableMcts extends AI {
         if (this.useAMAF) {
             analysisReport += String.format(
                     ", AMAF visits: %d, AMAF score: %f",
-                    this.lastSelectedNode.getVisitCountAMAF(), this.lastSelectedNode.getScoreAMAF(this.player));
+                    this.lastSelectedNode.getVisitCountAMAF(),
+                    this.lastSelectedNode.getScoreAMAF(this.player) / this.lastSelectedNode.getVisitCountAMAF());
         }
 
         if (this.useScoreBounds) {
