@@ -45,7 +45,7 @@ public class ExplainableMcts extends AI {
         }
 
         System.out.println(String.format(
-                "[%s] use score bounds: %b, use AMAF: %b, selection policy: %s, final move selection policy: %s",
+                "[%s] use score bounds: %b; use AMAF: %b; selection policy: %s; final move selection policy: %s",
                 this.friendlyName,
                 this.useScoreBounds,
                 this.useAMAF,
