@@ -2,13 +2,16 @@ package mcts;
 
 import game.Game;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import main.collections.FastArrayList;
 import mcts.policies.selection.ISelectionPolicy;
 import other.RankUtils;
 import other.context.Context;
 import other.move.Move;
+import search.mcts.MCTS.MoveKey;
 
 public class Node {
     private static final double WIN_SCORE = 1.0;
@@ -22,23 +25,29 @@ public class Node {
 
     private int visitCount = 0;
 
-    /**
-     * For every player, sum of utilities / scores backpropagated through this node
-     */
+    // For every player, sum of utilities / scores backpropagated through this node
     private final double[] scoreSums;
 
-    /** Scores from range [-1, 1], 1 means win, -1 loss */
+    // Scores from range [-1, 1], 1 means win, -1 loss
     private final double[] pessimisticScores;
-
     private final double[] optimisticScores;
 
-    /** ALL MOVES AS FIRST */
-    private final double[] scoreAMAF;
+    // ALL MOVES AS FIRST
+    private final class AMAFStats {
+        public int visitCountAMAF = 0;
+        public final double[] scoreSumsAMAF;
 
-    private int visitCountAMAF = 0;
+        public AMAFStats(final int playerCount) {
+            this.scoreSumsAMAF = new double[playerCount + 1];
+        }
+    }
+
+    private final Map<MoveKey, AMAFStats> statisticsAMAF = new HashMap<>();
 
     private final List<Node> children = new ArrayList<>();
     private final FastArrayList<Move> unexpandedMoves;
+
+    /*---------------------------------------------------------------------------------*/
 
     public Node(final Node parent, final Move moveFromParent, final Context context) {
         this.parent = parent;
@@ -48,7 +57,6 @@ public class Node {
 
         final var playerCount = game.players().count();
         this.scoreSums = new double[playerCount + 1];
-        this.scoreAMAF = new double[playerCount + 1];
 
         // if (useScoreBounds)
         this.pessimisticScores = new double[playerCount + 1];
@@ -88,16 +96,20 @@ public class Node {
         return visitCount;
     }
 
-    public int getVisitCountAMAF() {
-        return visitCountAMAF;
+    public int getVisitCountAMAF(final Move move) {
+        // TODO: maybe use some depth other than 0 for MoveKey
+        final var stats = statisticsAMAF.get(new MoveKey(move, 0));
+        return stats == null ? 0 : stats.visitCountAMAF;
     }
 
     public double getScoreSum(final int player) {
         return scoreSums[player];
     }
 
-    public double getScoreAMAF(final int player) {
-        return scoreAMAF[player];
+    public double getScoreSumAMAF(final Move move, final int player) {
+        // TODO: maybe use some depth other than 0 for MoveKey
+        final var stats = statisticsAMAF.get(new MoveKey(move, 0));
+        return stats == null ? 0.0 : stats.scoreSumsAMAF[player];
     }
 
     public double getPessimisticScore(final int player) {
@@ -273,25 +285,29 @@ public class Node {
         final var leafContext = simRes.context();
         final var utilities = simRes.utilities();
 
+        final var playerCount = this.game.players().count();
+
         // get action history for current state
         final var fullActionHistory = leafContext.trial().generateCompleteMovesList();
 
-        // naiwne rozwiazanie, bez haszowania ruchów
-        Node tempNode = this.parent;
-        while (tempNode != null) {
-            final var firstActionIndex = tempNode.context.trial().numMoves();
+        Node node = this;
+        while (node != null) {
+            final var firstActionIndex = node.context.trial().numMoves();
             final var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
 
             for (final var act : actionHistory) {
-                final var child = tempNode.getChildByMove(act);
-                if (child != null) {
-                    child.visitCountAMAF++;
-                    for (var p = 1; p <= this.game.players().count(); p++) {
-                        child.scoreAMAF[p] += utilities[p];
-                    }
+                final var moveKey = new MoveKey(act, 0);
+                if (!node.statisticsAMAF.containsKey(moveKey)) {
+                    node.statisticsAMAF.put(moveKey, new AMAFStats(playerCount));
+                }
+                final var stats = node.statisticsAMAF.get(moveKey);
+
+                stats.visitCountAMAF++;
+                for (var p = 1; p <= playerCount; p++) {
+                    stats.scoreSumsAMAF[p] += utilities[p];
                 }
             }
-            tempNode = tempNode.parent;
+            node = node.parent;
         }
     }
 }

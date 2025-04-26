@@ -13,7 +13,7 @@ public class LaunchLudii {
         final boolean useAMAF = true;
 
         final double graveBias = 1e-6;
-        final int graveRef = 0;
+        final int graveRef = 100;
         final ISelectionPolicy selectionPolicy = new GraveSelectionPolicy(graveBias, graveRef);
 
         final ISelectionPolicy finalMoveSelectionPolicy = new MostVisitedSelectionPolicy();

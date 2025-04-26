@@ -137,10 +137,11 @@ public class ExplainableMcts extends AI {
         String analysisReport = analysisReportBase + String.format(", score: %f", this.lastMoveValue);
 
         if (this.useAMAF) {
-            analysisReport += String.format(
-                    ", AMAF visits: %d, AMAF score: %f",
-                    this.lastSelectedNode.getVisitCountAMAF(),
-                    this.lastSelectedNode.getScoreAMAF(this.player) / this.lastSelectedNode.getVisitCountAMAF());
+            final var move = lastSelectedNode.getMoveFromParent();
+            final var visitCountAMAF = root.getVisitCountAMAF(move);
+            final var scoreAMAF = root.getScoreSumAMAF(move, this.player) / visitCountAMAF;
+
+            analysisReport += String.format(", AMAF visits: %d, AMAF score: %f", visitCountAMAF, scoreAMAF);
         }
 
         if (this.useScoreBounds) {

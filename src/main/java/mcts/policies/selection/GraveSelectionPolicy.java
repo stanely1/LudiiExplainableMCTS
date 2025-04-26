@@ -29,22 +29,22 @@ public final class GraveSelectionPolicy implements ISelectionPolicy {
     public double getNodeValue(Node node) {
         final var parentNode = node.getParent();
         final var currentPlayerID = parentNode.getContext().state().mover();
+        final var moveFromParent = node.getMoveFromParent();
 
-        // if (refNode == null || node.getVisitCount() > ref) {
-        //     System.err.println("ref node set with visits count: " + node.getVisitCount());
-        //     refNode = node;
-        // }
+        Node refNode = parentNode;
+        while (refNode != null && refNode.getVisitCount() <= ref) {
+            refNode = refNode.getParent();
+        }
 
-        Node refNode = node;
-        // while (refNode.getParent() != null && refNode.getVisitCount() <= ref) {
-        //     refNode = refNode.getParent();
-        // }
+        if (refNode == null) {
+            refNode = parentNode;
+        }
 
         final double w = node.getScoreSum(currentPlayerID);
         final double p = node.getVisitCount();
 
-        final double wa = refNode.getScoreAMAF(currentPlayerID);
-        final double pa = refNode.getVisitCountAMAF();
+        final double wa = refNode.getScoreSumAMAF(moveFromParent, currentPlayerID);
+        final double pa = refNode.getVisitCountAMAF(moveFromParent);
 
         // β formula from Tristan Cazenave's GRAVE paper
         final double beta = pa / (pa + p + BIAS * pa * p);
