@@ -27,6 +27,20 @@ public class ExplainableMcts extends AI {
     private double lastMoveValue = 0.0;
     private Node lastSelectedNode;
     // -------------------------------------------------------------------------
+    // Global table for MAST (i.e action Statistics
+
+    private final class ActionStats {
+        public int visitCount = 0;
+        public final double[] scoreSums;
+
+        public ActionStats(final int playerCount) {
+            this.scoreSums = new double[playerCount + 1];
+        }
+    }
+
+    // private final Map<MoveKey,
+
+    // -------------------------------------------------------------------------
 
     public ExplainableMcts(
             final ISelectionPolicy selectionPolicy,
@@ -63,8 +77,8 @@ public class ExplainableMcts extends AI {
 
         // We'll respect any limitations on max seconds and max iterations (don't care
         // about max depth)
-        final long stopTime =
-                (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L) : Long.MAX_VALUE;
+        final long stopTime = (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L)
+                : Long.MAX_VALUE;
         final int maxIts = (maxIterations >= 0) ? maxIterations : Integer.MAX_VALUE;
         int numIterations = 0;
 

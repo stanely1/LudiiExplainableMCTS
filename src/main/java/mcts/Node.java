@@ -13,6 +13,7 @@ import other.RankUtils;
 import other.context.Context;
 import other.move.Move;
 import search.mcts.MCTS.MoveKey;
+import mcts.ActionStats;
 
 public class Node {
     private static final double WIN_SCORE = 1.0;
@@ -33,17 +34,7 @@ public class Node {
     private final double[] pessimisticScores;
     private final double[] optimisticScores;
 
-    // ALL MOVES AS FIRST
-    private final class AMAFStats {
-        public int visitCountAMAF = 0;
-        public final double[] scoreSumsAMAF;
-
-        public AMAFStats(final int playerCount) {
-            this.scoreSumsAMAF = new double[playerCount + 1];
-        }
-    }
-
-    private final Map<MoveKey, AMAFStats> statisticsAMAF = new HashMap<>();
+    private final Map<MoveKey, ActionStats> statisticsAMAF = new HashMap<>();
 
     private final List<Node> children = new ArrayList<>();
     private final FastArrayList<Move> unexpandedMoves;
@@ -100,7 +91,7 @@ public class Node {
     public int getVisitCountAMAF(final Move move) {
         // TODO: maybe use some depth other than 0 for MoveKey
         final var stats = statisticsAMAF.get(new MoveKey(move, 0));
-        return stats == null ? 0 : stats.visitCountAMAF;
+        return stats == null ? 0 : stats.visitCount;
     }
 
     public double getScoreSum(final int player) {
@@ -110,7 +101,7 @@ public class Node {
     public double getScoreSumAMAF(final Move move, final int player) {
         // TODO: maybe use some depth other than 0 for MoveKey
         final var stats = statisticsAMAF.get(new MoveKey(move, 0));
-        return stats == null ? 0.0 : stats.scoreSumsAMAF[player];
+        return stats == null ? 0.0 : stats.scoreSums[player];
     }
 
     public double getPessimisticScore(final int player) {
@@ -204,7 +195,8 @@ public class Node {
         return newNode;
     }
 
-    public record SimulationResult(Context context, double[] utilities) {}
+    public record SimulationResult(Context context, double[] utilities) {
+    }
 
     public SimulationResult simulate() {
         Context tempContext = this.context;
@@ -303,13 +295,13 @@ public class Node {
             for (final var act : actionHistory) {
                 final var moveKey = new MoveKey(act, 0);
                 if (!node.statisticsAMAF.containsKey(moveKey)) {
-                    node.statisticsAMAF.put(moveKey, new AMAFStats(playerCount));
+                    node.statisticsAMAF.put(moveKey, new ActionStats(playerCount));
                 }
                 final var stats = node.statisticsAMAF.get(moveKey);
 
-                stats.visitCountAMAF++;
+                stats.visitCount++;
                 for (var p = 1; p <= playerCount; p++) {
-                    stats.scoreSumsAMAF[p] += utilities[p];
+                    stats.scoreSums[p] += utilities[p];
                 }
             }
             node = node.parent;
