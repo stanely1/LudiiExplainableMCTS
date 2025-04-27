@@ -10,8 +10,6 @@ import utils.AIRegistry;
 public class LaunchLudii {
     public static void main(final String[] args) {
         final boolean useScoreBounds = true;
-        final boolean useAMAF = true;
-
         final double graveBias = 1e-6;
         final int graveRef = 100;
         final ISelectionPolicy selectionPolicy = new GraveSelectionPolicy(graveBias, graveRef);
@@ -21,7 +19,7 @@ public class LaunchLudii {
         if (!AIRegistry.registerAI(
                 "Explainable MCTS",
                 () -> {
-                    return new ExplainableMcts(selectionPolicy, finalMoveSelectionPolicy, useScoreBounds, useAMAF);
+                    return new ExplainableMcts(selectionPolicy, finalMoveSelectionPolicy, useScoreBounds);
                 },
                 (game) -> {
                     return true;

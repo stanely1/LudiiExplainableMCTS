@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import main.collections.FastArrayList;
+import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.selection.ISelectionPolicy;
 import other.RankUtils;
 import other.context.Context;
@@ -220,7 +221,10 @@ public class Node {
         return new SimulationResult(tempContext, RankUtils.utilities(tempContext));
     }
 
-    public void propagate(final SimulationResult simRes, final boolean useScoreBounds, final boolean useAMAF) {
+    public void propagate(final SimulationResult simRes, final int flags) {
+        final boolean useScoreBounds = ((flags & BackpropagationFlags.SCORE_BOUNDS) != 0);
+        final boolean useAMAF = ((flags & BackpropagationFlags.AMAF_STATS) != 0);
+
         final var utilities = simRes.utilities();
 
         if (useScoreBounds && this.isTerminal()) {

@@ -3,6 +3,7 @@ package mcts;
 import game.Game;
 import java.util.List;
 import mcts.Node.SimulationResult;
+import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.selection.ISelectionPolicy;
 import mcts.policies.selection.ScoreBoundedFinalMoveSelectionPolicy;
 import mcts.policies.selection.ScoreBoundedSelectionPolicy;
@@ -19,7 +20,7 @@ public class ExplainableMcts extends AI {
     private final ISelectionPolicy selectionPolicy;
     private final ISelectionPolicy finalMoveSelectionPolicy;
 
-    private final boolean useScoreBounds, useAMAF;
+    private final int backpropagationFlags;
 
     private int lastActionHistorySize = 0;
     private int lastNumIterations = 0;
@@ -30,11 +31,8 @@ public class ExplainableMcts extends AI {
     public ExplainableMcts(
             final ISelectionPolicy selectionPolicy,
             final ISelectionPolicy finalMoveSelectionPolicy,
-            final boolean useScoreBounds,
-            final boolean useAMAF) {
+            final boolean useScoreBounds) {
         this.friendlyName = "ExplainableMcts";
-        this.useScoreBounds = useScoreBounds;
-        this.useAMAF = useAMAF;
 
         if (useScoreBounds) {
             this.selectionPolicy = new ScoreBoundedSelectionPolicy(selectionPolicy);
@@ -44,13 +42,15 @@ public class ExplainableMcts extends AI {
             this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
         }
 
+        this.backpropagationFlags = this.selectionPolicy.getBackpropagationFlags()
+                | this.finalMoveSelectionPolicy.getBackpropagationFlags();
+
         System.out.println(String.format(
-                "[%s] use score bounds: %b; use AMAF: %b; selection policy: %s; final move selection policy: %s",
+                "[%s] selection policy: %s; final move selection policy: %s; backpropagation flags: {%s}",
                 this.friendlyName,
-                this.useScoreBounds,
-                this.useAMAF,
                 this.selectionPolicy.getName(),
-                this.finalMoveSelectionPolicy.getName()));
+                this.finalMoveSelectionPolicy.getName(),
+                BackpropagationFlags.flagsToString(this.backpropagationFlags)));
     }
 
     @Override
@@ -83,7 +83,7 @@ public class ExplainableMcts extends AI {
 
             final Node newNode = current.expand();
             final SimulationResult simRes = newNode.simulate();
-            newNode.propagate(simRes, this.useScoreBounds, this.useAMAF);
+            newNode.propagate(simRes, this.backpropagationFlags);
 
             numIterations++;
         }
@@ -136,7 +136,7 @@ public class ExplainableMcts extends AI {
 
         String analysisReport = analysisReportBase + String.format(", score: %f", this.lastMoveValue);
 
-        if (this.useAMAF) {
+        if ((this.backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
             final var move = lastSelectedNode.getMoveFromParent();
             final var visitCountAMAF = root.getVisitCountAMAF(move);
             final var scoreAMAF = root.getScoreSumAMAF(move, this.player) / visitCountAMAF;
@@ -144,7 +144,7 @@ public class ExplainableMcts extends AI {
             analysisReport += String.format(", AMAF visits: %d, AMAF score: %f", visitCountAMAF, scoreAMAF);
         }
 
-        if (this.useScoreBounds) {
+        if ((this.backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
             if (this.lastSelectedNode.isSolved(this.player)) {
                 analysisReport = analysisReportBase
                         + String.format(
