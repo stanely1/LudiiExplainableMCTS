@@ -1,7 +1,9 @@
 package mcts;
 
 import game.Game;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import mcts.Node.SimulationResult;
 import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.selection.ISelectionPolicy;
@@ -10,6 +12,7 @@ import mcts.policies.selection.ScoreBoundedSelectionPolicy;
 import other.AI;
 import other.context.Context;
 import other.move.Move;
+import search.mcts.MCTS.MoveKey;
 
 public class ExplainableMcts extends AI {
     // -------------------------------------------------------------------------
@@ -29,16 +32,7 @@ public class ExplainableMcts extends AI {
     // -------------------------------------------------------------------------
     // Global table for MAST (i.e action Statistics
 
-    private final class ActionStats {
-        public int visitCount = 0;
-        public final double[] scoreSums;
-
-        public ActionStats(final int playerCount) {
-            this.scoreSums = new double[playerCount + 1];
-        }
-    }
-
-    // private final Map<MoveKey,
+    private final Map<MoveKey, ActionStats> globalActionStats = new HashMap<>();
 
     // -------------------------------------------------------------------------
 
@@ -77,8 +71,8 @@ public class ExplainableMcts extends AI {
 
         // We'll respect any limitations on max seconds and max iterations (don't care
         // about max depth)
-        final long stopTime = (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L)
-                : Long.MAX_VALUE;
+        final long stopTime =
+                (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L) : Long.MAX_VALUE;
         final int maxIts = (maxIterations >= 0) ? maxIterations : Integer.MAX_VALUE;
         int numIterations = 0;
 
@@ -99,6 +93,9 @@ public class ExplainableMcts extends AI {
             final Node newNode = current.expand();
             final SimulationResult simRes = newNode.simulate();
             newNode.propagate(simRes, this.backpropagationFlags);
+            if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
+                propagateGlobalStats(simRes);
+            }
 
             numIterations++;
         }
@@ -215,5 +212,29 @@ public class ExplainableMcts extends AI {
         }
 
         lastActionHistorySize = context.trial().numMoves();
+    }
+
+    private void propagateGlobalStats(SimulationResult simRes) {
+        final var leafContext = simRes.context();
+        final var utilities = simRes.utilities();
+
+        final var playerCount = root.getGame().players().count();
+        final var fullActionHistory = leafContext.trial().generateCompleteMovesList();
+
+        final var firstActionIndex = root.getContext().trial().numMoves();
+        final var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
+
+        for (final var act : actionHistory) {
+            final var moveKey = new MoveKey(act, 0);
+            if (!globalActionStats.containsKey(moveKey)) {
+                globalActionStats.put(moveKey, new ActionStats(playerCount));
+            }
+            final var stats = globalActionStats.get(moveKey);
+
+            stats.visitCount++;
+            for (var p = 1; p <= playerCount; p++) {
+                stats.scoreSums[p] += utilities[p];
+            }
+        }
     }
 }

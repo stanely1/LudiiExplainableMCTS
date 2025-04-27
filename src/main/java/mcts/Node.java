@@ -13,7 +13,6 @@ import other.RankUtils;
 import other.context.Context;
 import other.move.Move;
 import search.mcts.MCTS.MoveKey;
-import mcts.ActionStats;
 
 public class Node {
     private static final double WIN_SCORE = 1.0;
@@ -195,8 +194,7 @@ public class Node {
         return newNode;
     }
 
-    public record SimulationResult(Context context, double[] utilities) {
-    }
+    public record SimulationResult(Context context, double[] utilities) {}
 
     public SimulationResult simulate() {
         Context tempContext = this.context;
@@ -288,7 +286,6 @@ public class Node {
 
         Node node = this;
         while (node != null) {
-            // TODO: what if some action occurs more than once in this list?
             final var firstActionIndex = node.context.trial().numMoves();
             final var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
 
