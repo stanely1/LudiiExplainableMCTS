@@ -10,6 +10,8 @@ public interface ISelectionPolicy {
 
     public String getName();
 
+    public int getBackpropagationFlags();
+
     // TODO: INode ???
     public double getNodeValue(Node node);
 }

@@ -1,6 +1,7 @@
 package mcts.policies.selection;
 
 import mcts.Node;
+import mcts.policies.backpropagation.BackpropagationFlags;
 
 public final class GraveSelectionPolicy implements ISelectionPolicy {
     private final double BIAS;
@@ -23,6 +24,11 @@ public final class GraveSelectionPolicy implements ISelectionPolicy {
             name += " (RAVE)";
         }
         return name;
+    }
+
+    @Override
+    public int getBackpropagationFlags() {
+        return BackpropagationFlags.AMAF_STATS;
     }
 
     @Override

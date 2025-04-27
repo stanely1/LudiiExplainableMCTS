@@ -292,6 +292,7 @@ public class Node {
 
         Node node = this;
         while (node != null) {
+            // TODO: what if some action occurs more than once in this list?
             final var firstActionIndex = node.context.trial().numMoves();
             final var actionHistory = fullActionHistory.subList(firstActionIndex, fullActionHistory.size());
 

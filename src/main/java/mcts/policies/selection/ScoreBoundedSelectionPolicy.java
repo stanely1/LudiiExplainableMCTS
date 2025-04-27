@@ -1,6 +1,7 @@
 package mcts.policies.selection;
 
 import mcts.Node;
+import mcts.policies.backpropagation.BackpropagationFlags;
 
 public final class ScoreBoundedSelectionPolicy implements ISelectionPolicy {
     private final ISelectionPolicy wrappedPolicy;
@@ -9,9 +10,17 @@ public final class ScoreBoundedSelectionPolicy implements ISelectionPolicy {
         this.wrappedPolicy = wrappedPolicy;
     }
 
+    // TODO:
+    // next 2 functions duplicated in ScoreBoundedFinalMoveSelectionPolicy
+    // maybe move them to some base class ?
     @Override
     public String getName() {
         return "Score Bounded " + wrappedPolicy.getName();
+    }
+
+    @Override
+    public int getBackpropagationFlags() {
+        return BackpropagationFlags.SCORE_BOUNDS | wrappedPolicy.getBackpropagationFlags();
     }
 
     @Override

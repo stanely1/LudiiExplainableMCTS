@@ -10,6 +10,11 @@ public final class MostVisitedSelectionPolicy implements ISelectionPolicy {
     }
 
     @Override
+    public int getBackpropagationFlags() {
+        return 0;
+    }
+
+    @Override
     public double getNodeValue(Node node) {
         return node.getVisitCount();
     }

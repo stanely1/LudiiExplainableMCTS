@@ -9,6 +9,11 @@ public final class UCB1SelectionPolicy implements ISelectionPolicy {
     }
 
     @Override
+    public int getBackpropagationFlags() {
+        return 0;
+    }
+
+    @Override
     public double getNodeValue(Node node) {
         final var parentNode = node.getParent();
         final var currentPlayerID = parentNode.getContext().state().mover();
