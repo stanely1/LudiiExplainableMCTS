@@ -61,7 +61,8 @@ public class ExplainableMcts extends AI {
             final int maxIterations,
             final int maxDepth) {
 
-        // We'll respect any limitations on max seconds and max iterations (don't care about max depth)
+        // We'll respect any limitations on max seconds and max iterations (don't care
+        // about max depth)
         final long stopTime =
                 (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L) : Long.MAX_VALUE;
         final int maxIts = (maxIterations >= 0) ? maxIterations : Integer.MAX_VALUE;
