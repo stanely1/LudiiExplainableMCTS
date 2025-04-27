@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import mcts.Node.SimulationResult;
 import mcts.policies.backpropagation.BackpropagationFlags;
+import mcts.policies.playout.IPlayoutPolicy;
 import mcts.policies.selection.ISelectionPolicy;
 import mcts.policies.selection.ScoreBoundedFinalMoveSelectionPolicy;
 import mcts.policies.selection.ScoreBoundedSelectionPolicy;
@@ -22,6 +23,7 @@ public class ExplainableMcts extends AI {
 
     private final ISelectionPolicy selectionPolicy;
     private final ISelectionPolicy finalMoveSelectionPolicy;
+    private final IPlayoutPolicy playoutPolicy;
 
     private final int backpropagationFlags;
 
@@ -39,6 +41,7 @@ public class ExplainableMcts extends AI {
     public ExplainableMcts(
             final ISelectionPolicy selectionPolicy,
             final ISelectionPolicy finalMoveSelectionPolicy,
+            final IPlayoutPolicy playoutPolicy,
             final boolean useScoreBounds) {
         this.friendlyName = "ExplainableMcts";
 
@@ -50,14 +53,19 @@ public class ExplainableMcts extends AI {
             this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
         }
 
+        this.playoutPolicy = playoutPolicy;
+        this.playoutPolicy.setGlobalActionStats(globalActionStats);
+
         this.backpropagationFlags = this.selectionPolicy.getBackpropagationFlags()
-                | this.finalMoveSelectionPolicy.getBackpropagationFlags();
+                | this.finalMoveSelectionPolicy.getBackpropagationFlags()
+                | this.playoutPolicy.getBackpropagationFlags();
 
         System.out.println(String.format(
-                "[%s] selection policy: %s; final move selection policy: %s; backpropagation flags: {%s}",
+                "[%s] selection policy: %s; final move selection policy: %s; playout policy: %s; backpropagation flags: {%s}",
                 this.friendlyName,
                 this.selectionPolicy.getName(),
                 this.finalMoveSelectionPolicy.getName(),
+                this.playoutPolicy.getName(),
                 BackpropagationFlags.flagsToString(this.backpropagationFlags)));
     }
 
@@ -91,7 +99,7 @@ public class ExplainableMcts extends AI {
             }
 
             final Node newNode = current.expand();
-            final SimulationResult simRes = newNode.simulate();
+            final SimulationResult simRes = newNode.simulate(playoutPolicy);
             newNode.propagate(simRes, this.backpropagationFlags);
             if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
                 propagateGlobalStats(simRes);
@@ -146,21 +154,28 @@ public class ExplainableMcts extends AI {
                 "[%s] Performed %d iterations, selected node: {visits: %d",
                 this.friendlyName, this.lastNumIterations, this.lastSelectedNode.getVisitCount());
 
-        String analysisReport = analysisReportBase + String.format(", score: %f", this.lastMoveValue);
+        String analysisReport = analysisReportBase + String.format(", score: %.4f", this.lastMoveValue);
 
         if ((this.backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
             final var move = lastSelectedNode.getMoveFromParent();
             final var visitCountAMAF = root.getVisitCountAMAF(move);
             final var scoreAMAF = root.getScoreSumAMAF(move, this.player) / visitCountAMAF;
 
-            analysisReport += String.format(", AMAF visits: %d, AMAF score: %f", visitCountAMAF, scoreAMAF);
+            analysisReport += String.format(", AMAF visits: %d, AMAF score: %.4f", visitCountAMAF, scoreAMAF);
+        }
+
+        if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
+            final var aStats = globalActionStats.get(new MoveKey(lastSelectedNode.getMoveFromParent(), 0));
+            analysisReport +=
+                    String.format(", ActionStatistics: %.4f", aStats.scoreSums[this.player] / aStats.visitCount);
         }
 
         if ((this.backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
             if (this.lastSelectedNode.isSolved(this.player)) {
                 analysisReport = analysisReportBase
                         + String.format(
-                                ", solved node with score %f", this.lastSelectedNode.getPessimisticScore(this.player));
+                                ", solved node with score %.4f",
+                                this.lastSelectedNode.getPessimisticScore(this.player));
 
                 if (this.lastSelectedNode.isWin(this.player)) {
                     analysisReport += " (win)";
@@ -169,7 +184,7 @@ public class ExplainableMcts extends AI {
                 }
             } else {
                 analysisReport += String.format(
-                        ", pess: %f, opt: %f",
+                        ", pess: %.4f, opt: %.4f",
                         this.lastSelectedNode.getPessimisticScore(this.player),
                         this.lastSelectedNode.getOptimisticScore(this.player));
             }

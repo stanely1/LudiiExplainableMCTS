@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import main.collections.FastArrayList;
 import mcts.policies.backpropagation.BackpropagationFlags;
+import mcts.policies.playout.IPlayoutPolicy;
 import mcts.policies.selection.ISelectionPolicy;
 import other.RankUtils;
 import other.context.Context;
@@ -196,7 +197,7 @@ public class Node {
 
     public record SimulationResult(Context context, double[] utilities) {}
 
-    public SimulationResult simulate() {
+    public SimulationResult simulate(final IPlayoutPolicy playoutPolicy) {
         Context tempContext = this.context;
 
         if (this.isSolved(this.getPlayer())) {
@@ -205,7 +206,7 @@ public class Node {
 
         if (!isTerminal()) {
             tempContext = new Context(this.context);
-            this.game.playout(tempContext, null, -1.0, null, 0, -1, ThreadLocalRandom.current());
+            playoutPolicy.runPlayout(tempContext);
         }
 
         return new SimulationResult(tempContext, RankUtils.utilities(tempContext));

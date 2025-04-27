@@ -2,6 +2,8 @@ package main;
 
 import app.StartDesktopApp;
 import mcts.ExplainableMcts;
+import mcts.policies.playout.IPlayoutPolicy;
+import mcts.policies.playout.MAST;
 import mcts.policies.selection.GraveSelectionPolicy;
 import mcts.policies.selection.ISelectionPolicy;
 import mcts.policies.selection.MostVisitedSelectionPolicy;
@@ -15,11 +17,13 @@ public class LaunchLudii {
         final ISelectionPolicy selectionPolicy = new GraveSelectionPolicy(graveBias, graveRef);
 
         final ISelectionPolicy finalMoveSelectionPolicy = new MostVisitedSelectionPolicy();
+        final IPlayoutPolicy playoutPolicy = new MAST();
 
         if (!AIRegistry.registerAI(
                 "Explainable MCTS",
                 () -> {
-                    return new ExplainableMcts(selectionPolicy, finalMoveSelectionPolicy, useScoreBounds);
+                    return new ExplainableMcts(
+                            selectionPolicy, finalMoveSelectionPolicy, playoutPolicy, useScoreBounds);
                 },
                 (game) -> {
                     return true;

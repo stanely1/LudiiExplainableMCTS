@@ -28,12 +28,13 @@ public final class MAST implements IPlayoutPolicy {
         return "MAST";
     }
 
+    @Override
     public void setGlobalActionStats(final Map<MoveKey, ActionStats> globalActionStats) {
         this.globalActionStats = globalActionStats;
     }
 
     @Override
-    public int getPgetBackpropagationFlagslayoutFlags() {
+    public int getBackpropagationFlags() {
         return BackpropagationFlags.GLOBAL_ACTION_STATS;
     }
 
