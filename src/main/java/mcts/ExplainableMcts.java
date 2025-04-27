@@ -34,6 +34,10 @@ public class ExplainableMcts extends AI {
     // -------------------------------------------------------------------------
     // Global table for MAST (i.e action Statistics
 
+    // TODO:
+    // - Decay stats over time
+    // - NST
+    // (see: https://cris.maastrichtuniversity.nl/ws/portalfiles/portal/37539340/c6529.pdf/ chapter 2.5.2)
     private final Map<MoveKey, ActionStats> globalActionStats = new HashMap<>();
 
     // -------------------------------------------------------------------------
@@ -166,8 +170,9 @@ public class ExplainableMcts extends AI {
 
         if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
             final var aStats = globalActionStats.get(new MoveKey(lastSelectedNode.getMoveFromParent(), 0));
-            analysisReport +=
-                    String.format(", ActionStatistics: %.4f", aStats.scoreSums[this.player] / aStats.visitCount);
+            analysisReport += String.format(
+                    ", global action visits: %d, global action score: %.4f",
+                    aStats.visitCount, aStats.scoreSums[this.player] / aStats.visitCount);
         }
 
         if ((this.backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
@@ -229,7 +234,9 @@ public class ExplainableMcts extends AI {
         lastActionHistorySize = context.trial().numMoves();
     }
 
-    private void propagateGlobalStats(SimulationResult simRes) {
+    private void propagateGlobalStats(final SimulationResult simRes) {
+        // System.err.println("Updating global stats");
+
         final var leafContext = simRes.context();
         final var utilities = simRes.utilities();
 
@@ -251,5 +258,9 @@ public class ExplainableMcts extends AI {
                 stats.scoreSums[p] += utilities[p];
             }
         }
+
+        // TODO: needed here? why setting it once didn't work ?????
+        this.playoutPolicy.setGlobalActionStats(globalActionStats);
+        // System.err.println("MCTS: map size: " + globalActionStats.size());
     }
 }

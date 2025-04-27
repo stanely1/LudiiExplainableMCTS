@@ -26,6 +26,9 @@ public final class EpsilonGreedyWrapper extends PlayoutMoveSelector {
 
     @Override
     public boolean wantsPlayUniformRandomMove() {
+        // final var x = ThreadLocalRandom.current().nextDouble() < epsilon;
+        // System.err.println("playing random move: " + x);
+        // return x;
         return ThreadLocalRandom.current().nextDouble() < epsilon;
     }
 }

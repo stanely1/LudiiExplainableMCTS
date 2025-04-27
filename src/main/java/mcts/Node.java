@@ -276,13 +276,12 @@ public class Node {
         }
     }
 
-    private void propagateScoreAMAF(SimulationResult simRes) {
+    private void propagateScoreAMAF(final SimulationResult simRes) {
         final var leafContext = simRes.context();
         final var utilities = simRes.utilities();
 
         final var playerCount = this.game.players().count();
 
-        // get action history for current state
         final var fullActionHistory = leafContext.trial().generateCompleteMovesList();
 
         Node node = this;

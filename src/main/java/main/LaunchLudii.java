@@ -12,12 +12,14 @@ import utils.AIRegistry;
 public class LaunchLudii {
     public static void main(final String[] args) {
         final boolean useScoreBounds = true;
+
         final double graveBias = 1e-6;
         final int graveRef = 100;
-        final ISelectionPolicy selectionPolicy = new GraveSelectionPolicy(graveBias, graveRef);
+        final double mastEps = 0.1;
 
+        final ISelectionPolicy selectionPolicy = new GraveSelectionPolicy(graveBias, graveRef);
         final ISelectionPolicy finalMoveSelectionPolicy = new MostVisitedSelectionPolicy();
-        final IPlayoutPolicy playoutPolicy = new MAST();
+        final IPlayoutPolicy playoutPolicy = new MAST(mastEps);
 
         if (!AIRegistry.registerAI(
                 "Explainable MCTS",

@@ -25,7 +25,7 @@ public final class MAST implements IPlayoutPolicy {
 
     @Override
     public String getName() {
-        return "MAST";
+        return String.format("MAST (ε-greedy, ε=%f)", epsilon);
     }
 
     @Override
@@ -74,13 +74,19 @@ public final class MAST implements IPlayoutPolicy {
 
                 if (isMoveReallyLegal.checkMove(move)) {
                     final double tempScore = (aStats == null) ? -1.0 : aStats.scoreSums[p] / aStats.visitCount;
-                    if (tempScore >= bestScore) {
+                    // TODO: tie-breaker ?
+                    if (tempScore > bestScore) {
                         bestScore = tempScore;
                         bestMove = move;
                     }
                 }
             }
 
+            // if (bestMove == null) {
+            //     System.err.println("MAST: no move found");
+            // }
+            // System.err.println("MAST: selected move with score: " + bestScore);
+            // System.err.println("MAST: map size: " + globalActionStats.size());
             return bestMove;
         }
     }
