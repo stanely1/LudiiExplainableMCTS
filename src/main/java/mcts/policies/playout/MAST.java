@@ -68,15 +68,18 @@ public final class MAST implements IPlayoutPolicy {
             // get best legal move
             Move bestMove = null;
             double bestScore = Double.NEGATIVE_INFINITY;
+            int numBestFound = 0;
 
             for (final var move : maybeLegalMoves) {
                 final var aStats = globalActionStats.get(new MoveKey(move, 0));
 
                 if (isMoveReallyLegal.checkMove(move)) {
                     final double tempScore = (aStats == null) ? -1.0 : aStats.scoreSums[p] / aStats.visitCount;
-                    // TODO: tie-breaker ?
                     if (tempScore > bestScore) {
                         bestScore = tempScore;
+                        bestMove = move;
+                        numBestFound = 1;
+                    } else if (tempScore == bestScore && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
                         bestMove = move;
                     }
                 }
