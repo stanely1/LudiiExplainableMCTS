@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import mcts.Node.SimulationResult;
 import mcts.policies.IGlobalActionStatsUser;
+import mcts.policies.IGlobalNGramStatsUser;
 import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.playout.IPlayoutPolicy;
 import mcts.policies.selection.ISelectionPolicy;
@@ -15,6 +16,7 @@ import other.AI;
 import other.context.Context;
 import other.move.Move;
 import search.mcts.MCTS.MoveKey;
+import search.mcts.MCTS.NGramMoveKey;
 
 public class ExplainableMcts extends AI {
     // -------------------------------------------------------------------------
@@ -33,14 +35,17 @@ public class ExplainableMcts extends AI {
     private double lastMoveValue = 0.0;
     private Node lastSelectedNode;
     private Move lastSelectedMove;
-    // -------------------------------------------------------------------------
-    // Global table for MAST (i.e action Statistics
+
+    // Global tables for MAST/NST (i.e action/n-gram statistics)
 
     // TODO:
     // - Decay stats over time
-    // - NST
     // (see: https://cris.maastrichtuniversity.nl/ws/portalfiles/portal/37539340/c6529.pdf/ chapter 2.5.2)
+
     private final Map<MoveKey, ActionStats> globalActionStats = new HashMap<>();
+    private final Map<NGramMoveKey, ActionStats> globalNGramStats = new HashMap<>();
+
+    private int maxNGramLength = 0;
 
     // -------------------------------------------------------------------------
 
@@ -63,6 +68,11 @@ public class ExplainableMcts extends AI {
 
         if (this.playoutPolicy instanceof IGlobalActionStatsUser globalActionStatsPlayoutPolicy) {
             globalActionStatsPlayoutPolicy.setGlobalActionStats(globalActionStats);
+        }
+
+        if (this.playoutPolicy instanceof IGlobalNGramStatsUser globalNGramStatsPlayoutPolicy) {
+            globalNGramStatsPlayoutPolicy.setGlobalNGramStats(globalNGramStats);
+            this.maxNGramLength = globalNGramStatsPlayoutPolicy.getMaxNGramLength();
         }
 
         this.backpropagationFlags = this.selectionPolicy.getBackpropagationFlags()
@@ -110,9 +120,7 @@ public class ExplainableMcts extends AI {
             final Node newNode = current.expand();
             final SimulationResult simRes = newNode.simulate(playoutPolicy);
             newNode.propagate(simRes, this.backpropagationFlags);
-            if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
-                propagateGlobalStats(simRes);
-            }
+            propagateGlobalStats(simRes);
 
             numIterations++;
         }
@@ -241,6 +249,16 @@ public class ExplainableMcts extends AI {
     }
 
     private void propagateGlobalStats(final SimulationResult simRes) {
+        if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
+            propagateGlobalActionStats(simRes);
+        }
+
+        if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
+            propagateGlobalNGramStats(simRes);
+        }
+    }
+
+    private void propagateGlobalActionStats(final SimulationResult simRes) {
         // System.err.println("Updating global stats");
 
         final var leafContext = simRes.context();
@@ -270,5 +288,43 @@ public class ExplainableMcts extends AI {
             globalActionStatsPlayoutPolicy.setGlobalActionStats(globalActionStats);
         }
         // System.err.println("MCTS: map size: " + globalActionStats.size());
+    }
+
+    private void propagateGlobalNGramStats(final SimulationResult simRes) {
+        // System.err.println("updating global ngram stats");
+
+        final var leafContext = simRes.context();
+        final var utilities = simRes.utilities();
+
+        final var playerCount = root.getGame().players().count();
+        final var fullActionHistory = leafContext.trial().generateCompleteMovesList();
+        final var firstActionIndex = root.getContext().trial().numMoves();
+
+        for (var i = firstActionIndex; i < fullActionHistory.size(); i++) {
+            for (var j = Math.max(0, i - maxNGramLength + 1); j <= i; j++) {
+                final var n = i - j + 1;
+                final var nGram = new Move[n];
+                for (var k = 0; k < n; k++) {
+                    nGram[k] = fullActionHistory.get(j + k);
+                }
+
+                final var nGramKey = new NGramMoveKey(nGram, 0);
+                if (!globalNGramStats.containsKey(nGramKey)) {
+                    globalNGramStats.put(nGramKey, new ActionStats(playerCount));
+                }
+                final var stats = globalNGramStats.get(nGramKey);
+
+                stats.visitCount++;
+                for (var p = 1; p <= playerCount; p++) {
+                    stats.scoreSums[p] += utilities[p];
+                }
+            }
+        }
+
+        if (this.playoutPolicy instanceof IGlobalNGramStatsUser globalNGramStatsPlayoutPolicy) {
+            globalNGramStatsPlayoutPolicy.setGlobalNGramStats(globalNGramStats);
+        }
+
+        // System.err.println("MCTS: map size: " + globalNGramStats.size());
     }
 }

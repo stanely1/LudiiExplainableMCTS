@@ -94,6 +94,10 @@ public final class NST implements IPlayoutPolicy, IGlobalNGramStatsUser {
                 int numNGramsConsidered = 0;
                 double nGramsScoreSum = 0.0;
 
+                // TODO:
+                // https://cris.maastrichtuniversity.nl/ws/portalfiles/portal/37539340/c6529.pdf/ chapter 2.5.2:
+                // "In this computation, N-Grams with length greater than 1 are taken into account
+                //  only if they have been visited at least N times."
                 for (var n = 1; n <= maxNGramLength; n++) {
                     final var nGram = new Move[n];
                     for (var i = 0; i < n; i++) {
