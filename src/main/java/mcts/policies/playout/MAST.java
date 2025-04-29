@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import main.collections.FastArrayList;
 import mcts.ActionStats;
+import mcts.policies.IGlobalActionStatsUser;
 import mcts.policies.backpropagation.BackpropagationFlags;
 import other.context.Context;
 import other.move.Move;
@@ -11,7 +12,7 @@ import other.playout.PlayoutMoveSelector;
 import other.trial.Trial;
 import search.mcts.MCTS.MoveKey;
 
-public final class MAST implements IPlayoutPolicy {
+public final class MAST implements IPlayoutPolicy, IGlobalActionStatsUser {
     private final double epsilon;
     private Map<MoveKey, ActionStats> globalActionStats;
 
@@ -71,15 +72,16 @@ public final class MAST implements IPlayoutPolicy {
             int numBestFound = 0;
 
             for (final var move : maybeLegalMoves) {
-                final var aStats = globalActionStats.get(new MoveKey(move, 0));
-
                 if (isMoveReallyLegal.checkMove(move)) {
+                    final var aStats = globalActionStats.get(new MoveKey(move, 0));
                     final double tempScore = (aStats == null) ? -1.0 : aStats.scoreSums[p] / aStats.visitCount;
+
                     if (tempScore > bestScore) {
                         bestScore = tempScore;
                         bestMove = move;
                         numBestFound = 1;
-                    } else if (tempScore == bestScore && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
+                    } else if (tempScore == bestScore
+                            && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
                         bestMove = move;
                     }
                 }

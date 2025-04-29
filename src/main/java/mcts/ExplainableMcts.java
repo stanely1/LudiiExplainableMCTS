@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import mcts.Node.SimulationResult;
+import mcts.policies.IGlobalActionStatsUser;
 import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.playout.IPlayoutPolicy;
 import mcts.policies.selection.ISelectionPolicy;
@@ -31,6 +32,7 @@ public class ExplainableMcts extends AI {
     private int lastNumIterations = 0;
     private double lastMoveValue = 0.0;
     private Node lastSelectedNode;
+    private Move lastSelectedMove;
     // -------------------------------------------------------------------------
     // Global table for MAST (i.e action Statistics
 
@@ -58,7 +60,10 @@ public class ExplainableMcts extends AI {
         }
 
         this.playoutPolicy = playoutPolicy;
-        this.playoutPolicy.setGlobalActionStats(globalActionStats);
+
+        if (this.playoutPolicy instanceof IGlobalActionStatsUser globalActionStatsPlayoutPolicy) {
+            globalActionStatsPlayoutPolicy.setGlobalActionStats(globalActionStats);
+        }
 
         this.backpropagationFlags = this.selectionPolicy.getBackpropagationFlags()
                 | this.finalMoveSelectionPolicy.getBackpropagationFlags()
@@ -112,13 +117,13 @@ public class ExplainableMcts extends AI {
             numIterations++;
         }
 
-        final Node selectedNode = root.select(this.finalMoveSelectionPolicy);
+        this.lastSelectedNode = root.select(this.finalMoveSelectionPolicy);
 
         this.lastNumIterations = numIterations;
-        this.lastMoveValue = selectedNode.getScoreSum(this.player) / selectedNode.getVisitCount();
-        this.lastSelectedNode = selectedNode;
+        this.lastMoveValue = lastSelectedNode.getScoreSum(this.player) / lastSelectedNode.getVisitCount();
+        this.lastSelectedMove = lastSelectedNode.getMoveFromParent();
 
-        return selectedNode.getMoveFromParent();
+        return this.lastSelectedMove;
     }
 
     @Override
@@ -130,6 +135,7 @@ public class ExplainableMcts extends AI {
         this.lastNumIterations = 0;
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
+        this.lastSelectedMove = null;
     }
 
     @Override
@@ -140,6 +146,7 @@ public class ExplainableMcts extends AI {
         this.lastNumIterations = 0;
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
+        this.lastSelectedMove = null;
     }
 
     @Override
@@ -161,15 +168,14 @@ public class ExplainableMcts extends AI {
         String analysisReport = analysisReportBase + String.format(", score: %.4f", this.lastMoveValue);
 
         if ((this.backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
-            final var move = lastSelectedNode.getMoveFromParent();
-            final var visitCountAMAF = root.getVisitCountAMAF(move);
-            final var scoreAMAF = root.getScoreSumAMAF(move, this.player) / visitCountAMAF;
+            final var visitCountAMAF = root.getVisitCountAMAF(lastSelectedMove);
+            final var scoreAMAF = root.getScoreSumAMAF(lastSelectedMove, this.player) / visitCountAMAF;
 
             analysisReport += String.format(", AMAF visits: %d, AMAF score: %.4f", visitCountAMAF, scoreAMAF);
         }
 
         if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
-            final var aStats = globalActionStats.get(new MoveKey(lastSelectedNode.getMoveFromParent(), 0));
+            final var aStats = globalActionStats.get(new MoveKey(lastSelectedMove, 0));
             analysisReport += String.format(
                     ", global action visits: %d, global action score: %.4f",
                     aStats.visitCount, aStats.scoreSums[this.player] / aStats.visitCount);
@@ -260,7 +266,9 @@ public class ExplainableMcts extends AI {
         }
 
         // TODO: needed here? why setting it once didn't work ?????
-        this.playoutPolicy.setGlobalActionStats(globalActionStats);
+        if (this.playoutPolicy instanceof IGlobalActionStatsUser globalActionStatsPlayoutPolicy) {
+            globalActionStatsPlayoutPolicy.setGlobalActionStats(globalActionStats);
+        }
         // System.err.println("MCTS: map size: " + globalActionStats.size());
     }
 }
