@@ -36,6 +36,8 @@ public class ExplainableMcts extends AI {
     private Node lastSelectedNode;
     private Move lastSelectedMove;
 
+    private String analysisReport;
+
     // Global tables for MAST/NST (i.e action/n-gram statistics)
 
     // TODO:
@@ -132,6 +134,11 @@ public class ExplainableMcts extends AI {
         this.lastMoveValue = lastSelectedNode.getScoreSum(this.player) / lastSelectedNode.getVisitCount();
         this.lastSelectedMove = lastSelectedNode.getMoveFromParent();
 
+        final String debugString = generateDebugString();
+        final String explanation = generateExplanation();
+
+        this.analysisReport = debugString + "\n" + explanation + "\n";
+
         return this.lastSelectedMove;
     }
 
@@ -170,10 +177,7 @@ public class ExplainableMcts extends AI {
 
     @Override
     public String generateAnalysisReport() {
-        String debugString = generateDebugString() + "\n";
-
-        // TODO: explanations here
-        return debugString + "I selected this move because it was the best.\n";
+        return analysisReport;
     }
 
     private String generateDebugString() {
@@ -219,6 +223,13 @@ public class ExplainableMcts extends AI {
 
         debugString += "}";
         return debugString;
+    }
+
+    private String generateExplanation() {
+        // TODO: explanations here
+        String explanation = "I selected this move because it was the best.";
+
+        return explanation;
     }
 
     private void initRoot(final Context context) {
