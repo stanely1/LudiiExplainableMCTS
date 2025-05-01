@@ -227,16 +227,24 @@ public class ExplainableMcts extends AI {
     }
 
     private String generateExplanation() {
-        String explanation = "This move was the best.";
+        String explanation = "";
+
+        // TODO: compare with other available moves
+        // - is it much better than all others?
+        // - is it one of a few "not bad" moves?
+        // - is it only slightly better than others?
+        // - or all moves have the same score and this one is chosen randomly?
+
+        // maybe solver can tell us that all moves are loss, except from the one we chose (rare event?)
 
         if (lastSelectedNode.isSolved(this.player)) {
             if (lastSelectedNode.isWin(this.player)) {
-                explanation = "This move leads to state where we can win no matter what opponent does.";
+                explanation += "This move leads to a state where we win regardless of the opponent's actions.";
             } else if (lastSelectedNode.isLoss(this.player)) {
-                explanation =
-                        "This move leads to losing the game, assuming optimal opponent. It was selected because all moves are losing.";
+                explanation +=
+                        "This move leads to a loss, assuming the opponent plays optimally. It was selected because all available moves result in a loss.";
             } else {
-                explanation = "This move leads to draw.";
+                explanation += "This move leads to a draw.";
             }
         }
 
@@ -245,7 +253,7 @@ public class ExplainableMcts extends AI {
             final var moveStats = globalActionStats.get(moveKey);
             if (moveStats.scoreSums[this.player] / moveStats.visitCount > 0.25) {
                 if (!explanation.equals("")) explanation += " ";
-                explanation += "This move seems to be good in general, independent of when it is played.";
+                explanation += "This move generally performs well, regardless of when it is played.";
             }
         }
 
@@ -254,8 +262,14 @@ public class ExplainableMcts extends AI {
             final var scoreAMAF = root.getScoreSumAMAF(lastSelectedMove, this.player) / visitCountAMAF;
             if (scoreAMAF > 0.5) {
                 if (!explanation.equals("")) explanation += " ";
-                explanation += "This move seems to be good in game phase after current state (subtree).";
+                explanation += "This move tends to perform well in game phases that follow the current state.";
             }
+        }
+
+        // TODO: use values from NST
+
+        if (explanation.equals("")) {
+            explanation = "This move was selected because it is currently the best available option.";
         }
 
         return explanation;
