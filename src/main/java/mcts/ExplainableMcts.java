@@ -105,6 +105,7 @@ public class ExplainableMcts extends AI {
 
         initRoot(context);
 
+        // TODO: fixed num of iterations + fixed seed
         while (numIterations < maxIts
                 && System.currentTimeMillis() < stopTime
                 && !wantsInterrupt
@@ -169,48 +170,55 @@ public class ExplainableMcts extends AI {
 
     @Override
     public String generateAnalysisReport() {
-        String analysisReportBase = String.format(
+        String debugString = generateDebugString() + "\n";
+
+        // TODO: explanations here
+        return debugString + "I selected this move because it was the best.\n";
+    }
+
+    private String generateDebugString() {
+        String debugStringBase = String.format(
                 "[%s] Performed %d iterations, selected node: {visits: %d",
                 this.friendlyName, this.lastNumIterations, this.lastSelectedNode.getVisitCount());
 
-        String analysisReport = analysisReportBase + String.format(", score: %.4f", this.lastMoveValue);
+        String debugString = debugStringBase + String.format(", score: %.4f", this.lastMoveValue);
 
         if ((this.backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
             final var visitCountAMAF = root.getVisitCountAMAF(lastSelectedMove);
             final var scoreAMAF = root.getScoreSumAMAF(lastSelectedMove, this.player) / visitCountAMAF;
 
-            analysisReport += String.format(", AMAF visits: %d, AMAF score: %.4f", visitCountAMAF, scoreAMAF);
+            debugString += String.format(", AMAF visits: %d, AMAF score: %.4f", visitCountAMAF, scoreAMAF);
         }
 
         if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
             final var aStats = globalActionStats.get(new MoveKey(lastSelectedMove, 0));
-            analysisReport += String.format(
+            debugString += String.format(
                     ", global action visits: %d, global action score: %.4f",
                     aStats.visitCount, aStats.scoreSums[this.player] / aStats.visitCount);
         }
 
         if ((this.backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
             if (this.lastSelectedNode.isSolved(this.player)) {
-                analysisReport = analysisReportBase
+                debugString = debugStringBase
                         + String.format(
                                 ", solved node with score %.4f",
                                 this.lastSelectedNode.getPessimisticScore(this.player));
 
                 if (this.lastSelectedNode.isWin(this.player)) {
-                    analysisReport += " (win)";
+                    debugString += " (win)";
                 } else if (this.lastSelectedNode.isLoss(this.player)) {
-                    analysisReport += " (loss)";
+                    debugString += " (loss)";
                 }
             } else {
-                analysisReport += String.format(
+                debugString += String.format(
                         ", pess: %.4f, opt: %.4f",
                         this.lastSelectedNode.getPessimisticScore(this.player),
                         this.lastSelectedNode.getOptimisticScore(this.player));
             }
         }
 
-        analysisReport += "}";
-        return analysisReport;
+        debugString += "}";
+        return debugString;
     }
 
     private void initRoot(final Context context) {
