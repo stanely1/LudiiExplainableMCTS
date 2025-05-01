@@ -103,6 +103,7 @@ public class ExplainableMcts extends AI {
         final long stopTime =
                 (maxSeconds > 0.0) ? System.currentTimeMillis() + (long) (maxSeconds * 1000L) : Long.MAX_VALUE;
         final int maxIts = (maxIterations >= 0) ? maxIterations : Integer.MAX_VALUE;
+        // final int maxIts = 1000;
         int numIterations = 0;
 
         initRoot(context);
@@ -226,8 +227,36 @@ public class ExplainableMcts extends AI {
     }
 
     private String generateExplanation() {
-        // TODO: explanations here
-        String explanation = "I selected this move because it was the best.";
+        String explanation = "This move was the best.";
+
+        if (lastSelectedNode.isSolved(this.player)) {
+            if (lastSelectedNode.isWin(this.player)) {
+                explanation = "This move leads to state where we can win no matter what opponent does.";
+            } else if (lastSelectedNode.isLoss(this.player)) {
+                explanation =
+                        "This move leads to losing the game, assuming optimal opponent. It was selected because all moves are losing.";
+            } else {
+                explanation = "This move leads to draw.";
+            }
+        }
+
+        final var moveKey = new MoveKey(lastSelectedMove, 0);
+        if (globalActionStats.containsKey(moveKey)) {
+            final var moveStats = globalActionStats.get(moveKey);
+            if (moveStats.scoreSums[this.player] / moveStats.visitCount > 0.25) {
+                if (!explanation.equals("")) explanation += " ";
+                explanation += "This move seems to be good in general, independent of when it is played.";
+            }
+        }
+
+        final var visitCountAMAF = root.getVisitCountAMAF(lastSelectedMove);
+        if (visitCountAMAF > 0) {
+            final var scoreAMAF = root.getScoreSumAMAF(lastSelectedMove, this.player) / visitCountAMAF;
+            if (scoreAMAF > 0.5) {
+                if (!explanation.equals("")) explanation += " ";
+                explanation += "This move seems to be good in game phase after current state (subtree).";
+            }
+        }
 
         return explanation;
     }
