@@ -260,14 +260,41 @@ public class ExplainableMcts extends AI {
 
         // TODO: compare with other available moves
         // - is it much better than all others?
-        // - is it one of a few "not bad" moves?
+        // - is it one of a few "not bad" moves? (print them ?)
         // - is it only slightly better than others?
         // - or all moves have the same score and this one is chosen randomly?
+
+        // comparison with other moves
+        if (root.getChildren().size() == 1) {
+            explanation += "Since there was only one move available, it was the one chosen.";
+        } else {
+            double selectedMoveScore = Double.NEGATIVE_INFINITY;
+            double maxOtherMoveScore = Double.NEGATIVE_INFINITY;
+            for (final var childNode : root.getChildren()) {
+                final var childScore = this.finalMoveSelectionPolicy.getNodeValue(childNode);
+                if (childNode == lastSelectedNode) {
+                    selectedMoveScore = childScore;
+                } else {
+                    maxOtherMoveScore = Math.max(maxOtherMoveScore, childScore);
+                }
+            }
+            final var otherToSelectedRatio = maxOtherMoveScore / selectedMoveScore;
+
+            if (otherToSelectedRatio < 0.75) {
+                explanation += "The selected move was significantly better than all other options.";
+            } else if (selectedMoveScore != maxOtherMoveScore) {
+                explanation += "The selected move was only slightly better than the best of the other options.";
+            } else {
+                explanation +=
+                        "The selected move had the same value as some others and was chosen randomly from among them.";
+            }
+        }
 
         // maybe solver can tell us that all moves are loss, except from the one we chose (rare event?)
 
         // Score Bounds (Solver)
         if (lastSelectedNode.isSolved(this.player)) {
+            if (!explanation.equals("")) explanation += " ";
             if (lastSelectedNode.isWin(this.player)) {
                 explanation += "This move leads to a state where we win regardless of the opponent's actions.";
             } else if (lastSelectedNode.isLoss(this.player)) {
@@ -308,9 +335,9 @@ public class ExplainableMcts extends AI {
                     switch (n) {
                         case 1 -> explanation += "This move generally performs well, regardless of when it is played.";
                         case 2 -> explanation +=
-                                "This move generally seems to perform well when played after the preceding move.";
+                                "This move generally performs well when played after the previous move.";
                         default -> explanation += String.format(
-                                "This move generally seems to perform well when played after the sequence of %d preceding moves.",
+                                "This move generally performs well when played after a sequence of %d preceding moves.",
                                 n - 1);
                     }
                 }
