@@ -1,6 +1,7 @@
 package mcts;
 
 import game.Game;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -202,6 +203,34 @@ public class ExplainableMcts extends AI {
                     aStats.visitCount, aStats.scoreSums[this.player] / aStats.visitCount);
         }
 
+        if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
+            final List<Move> reverseActionSequence = new ArrayList<>();
+            reverseActionSequence.add(lastSelectedMove);
+            final var reverseTrialIterator = root.getContext().trial().reverseMoveIterator();
+
+            for (var n = 1; n <= maxNGramLength; n++) {
+                final var nGram = new Move[n];
+                for (var i = 0; i < n; i++) {
+                    nGram[i] = reverseActionSequence.get(n - i - 1);
+                }
+                final var nGramKey = new NGramMoveKey(nGram, 0);
+
+                if (globalNGramStats.containsKey(nGramKey)) {
+                    final var nGramStats = globalNGramStats.get(nGramKey);
+                    debugString += String.format(
+                            ", %d-gram visits: %d, %d-gram score: %f",
+                            n, nGramStats.visitCount, n, nGramStats.scoreSums[this.player] / nGramStats.visitCount);
+                } else {
+                    break;
+                }
+
+                if (!reverseTrialIterator.hasNext()) {
+                    break;
+                }
+                reverseActionSequence.add(reverseTrialIterator.next());
+            }
+        }
+
         if ((this.backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
             if (this.lastSelectedNode.isSolved(this.player)) {
                 debugString = debugStringBase
@@ -237,6 +266,7 @@ public class ExplainableMcts extends AI {
 
         // maybe solver can tell us that all moves are loss, except from the one we chose (rare event?)
 
+        // Score Bounds (Solver)
         if (lastSelectedNode.isSolved(this.player)) {
             if (lastSelectedNode.isWin(this.player)) {
                 explanation += "This move leads to a state where we win regardless of the opponent's actions.";
@@ -248,6 +278,7 @@ public class ExplainableMcts extends AI {
             }
         }
 
+        // MAST
         final var moveKey = new MoveKey(lastSelectedMove, 0);
         if (globalActionStats.containsKey(moveKey)) {
             final var moveStats = globalActionStats.get(moveKey);
@@ -257,6 +288,43 @@ public class ExplainableMcts extends AI {
             }
         }
 
+        // NST
+        final List<Move> reverseActionSequence = new ArrayList<>();
+        reverseActionSequence.add(lastSelectedMove);
+        final var reverseTrialIterator = root.getContext().trial().reverseMoveIterator();
+
+        for (var n = 1; n <= maxNGramLength; n++) {
+            final var nGram = new Move[n];
+            for (var i = 0; i < n; i++) {
+                nGram[i] = reverseActionSequence.get(n - i - 1);
+            }
+            final var nGramKey = new NGramMoveKey(nGram, 0);
+
+            if (globalNGramStats.containsKey(nGramKey)) {
+                final var nGramStats = globalNGramStats.get(nGramKey);
+                if (nGramStats.scoreSums[this.player] / nGramStats.visitCount > 0.25) {
+                    if (!explanation.equals("")) explanation += " ";
+
+                    switch (n) {
+                        case 1 -> explanation += "This move generally performs well, regardless of when it is played.";
+                        case 2 -> explanation +=
+                                "This move generally seems to perform well when played after the preceding move.";
+                        default -> explanation += String.format(
+                                "This move generally seems to perform well when played after the sequence of %d preceding moves.",
+                                n - 1);
+                    }
+                }
+            } else {
+                break;
+            }
+
+            if (!reverseTrialIterator.hasNext()) {
+                break;
+            }
+            reverseActionSequence.add(reverseTrialIterator.next());
+        }
+
+        // AMAF (GRAVE)
         final var visitCountAMAF = root.getVisitCountAMAF(lastSelectedMove);
         if (visitCountAMAF > 0) {
             final var scoreAMAF = root.getScoreSumAMAF(lastSelectedMove, this.player) / visitCountAMAF;
@@ -265,8 +333,6 @@ public class ExplainableMcts extends AI {
                 explanation += "This move tends to perform well in game phases that follow the current state.";
             }
         }
-
-        // TODO: use values from NST
 
         if (explanation.equals("")) {
             explanation = "This move was selected because it is currently the best available option.";
