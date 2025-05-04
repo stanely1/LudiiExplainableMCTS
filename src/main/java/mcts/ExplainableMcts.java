@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import mcts.Node.SimulationResult;
 import mcts.policies.IGlobalActionStatsUser;
 import mcts.policies.IGlobalNGramStatsUser;
@@ -14,6 +15,7 @@ import mcts.policies.selection.ISelectionPolicy;
 import mcts.policies.selection.ScoreBoundedFinalMoveSelectionPolicy;
 import mcts.policies.selection.ScoreBoundedSelectionPolicy;
 import other.AI;
+import other.action.Action;
 import other.context.Context;
 import other.move.Move;
 import search.mcts.MCTS.MoveKey;
@@ -256,7 +258,13 @@ public class ExplainableMcts extends AI {
     }
 
     private String generateExplanation() {
-        String explanation = "";
+        Function<Move, String> moveToString = move -> move.actions().stream()
+                .filter(Action::isDecision)
+                .findFirst()
+                .map(a -> a.toTurnFormat(root.getContext(), true))
+                .orElse(null);
+
+        String explanation = String.format("Selected move: %s.\n", moveToString.apply(lastSelectedMove));
 
         // TODO: compare with other available moves
         // - is it much better than all others?
@@ -294,15 +302,40 @@ public class ExplainableMcts extends AI {
 
         // Score Bounds (Solver)
         if (lastSelectedNode.isSolved(this.player)) {
-            if (!explanation.equals("")) explanation += " ";
+            explanation += " ";
+
+            String gameResult;
             if (lastSelectedNode.isWin(this.player)) {
+                gameResult = "win";
                 explanation += "This move leads to a state where we win regardless of the opponent's actions.";
             } else if (lastSelectedNode.isLoss(this.player)) {
+                gameResult = "loss";
                 explanation +=
                         "This move leads to a loss, assuming the opponent plays optimally. It was selected because all available moves result in a loss.";
             } else {
+                gameResult = "draw";
                 explanation += "This move leads to a draw.";
             }
+
+            // print PV
+            explanation += " After we play this move ";
+            var node = lastSelectedNode;
+            while (!node.isTerminal()) {
+                final var nextNode = node.select(this.finalMoveSelectionPolicy);
+                final var currentPlayer = node.getPlayer();
+                if (currentPlayer == this.player) {
+                    explanation += String.format("we will play %s, ", moveToString.apply(nextNode.getMoveFromParent()));
+                } else {
+                    explanation += String.format(
+                            "player %d will most likely play %s, ",
+                            currentPlayer, moveToString.apply(nextNode.getMoveFromParent()));
+                }
+
+                explanation += "then ";
+                node = nextNode;
+            }
+
+            explanation += String.format("the game ends with a %s.", gameResult);
         }
 
         // MAST
