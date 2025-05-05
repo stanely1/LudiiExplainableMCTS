@@ -266,36 +266,48 @@ public class ExplainableMcts extends AI {
 
         String explanation = String.format("Selected move: %s.\n", moveToString.apply(lastSelectedMove));
 
-        // TODO: compare with other available moves
-        // - is it much better than all others?
-        // - is it one of a few "not bad" moves? (print them ?)
-        // - is it only slightly better than others?
-        // - or all moves have the same score and this one is chosen randomly?
-
         // comparison with other moves
         if (root.getChildren().size() == 1) {
             explanation += "Since there was only one move available, it was the one chosen.";
         } else {
-            double selectedMoveScore = Double.NEGATIVE_INFINITY;
-            double maxOtherMoveScore = Double.NEGATIVE_INFINITY;
+            double selectedMoveScore = this.finalMoveSelectionPolicy.getNodeValue(lastSelectedNode);
+
+            List<String> equalMoveStrings = new ArrayList<>();
+            List<String> slightlyWorseMoveStrings = new ArrayList<>();
+            List<String> muchWorseMoveStrings = new ArrayList<>();
+
             for (final var childNode : root.getChildren()) {
-                final var childScore = this.finalMoveSelectionPolicy.getNodeValue(childNode);
                 if (childNode == lastSelectedNode) {
-                    selectedMoveScore = childScore;
+                    continue;
+                }
+
+                final var childScore = this.finalMoveSelectionPolicy.getNodeValue(childNode);
+                if (childScore == selectedMoveScore) {
+                    equalMoveStrings.add(moveToString.apply(childNode.getMoveFromParent()));
+                } else if (childScore / selectedMoveScore > 0.75) {
+                    slightlyWorseMoveStrings.add(moveToString.apply(childNode.getMoveFromParent()));
                 } else {
-                    maxOtherMoveScore = Math.max(maxOtherMoveScore, childScore);
+                    muchWorseMoveStrings.add(moveToString.apply(childNode.getMoveFromParent()));
                 }
             }
-            final var otherToSelectedRatio = maxOtherMoveScore / selectedMoveScore;
 
-            if (otherToSelectedRatio < 0.75) {
-                explanation += "The selected move was significantly better than all other options.";
-            } else if (selectedMoveScore != maxOtherMoveScore) {
-                explanation += "The selected move was only slightly better than the best of the other options.";
-            } else {
-                explanation +=
-                        "The selected move had the same value as some others and was chosen randomly from among them.";
+            // TODO: print moves only if there is not too much of them?
+            List<String> sentencesToPrint = new ArrayList<>();
+            if (!equalMoveStrings.isEmpty()) {
+                sentencesToPrint.add(String.format(
+                        "The selected move has the same estimated value as following moves: %s. It was chosen randomly from among them.",
+                        String.join(", ", equalMoveStrings)));
             }
+            if (!slightlyWorseMoveStrings.isEmpty()) {
+                sentencesToPrint.add(String.format(
+                        "The following moves are considered slightly worse than the one chosen: %s.",
+                        String.join(", ", slightlyWorseMoveStrings)));
+            }
+            if (!muchWorseMoveStrings.isEmpty()) {
+                sentencesToPrint.add("The selected move was significantly better than all other options.");
+            }
+
+            explanation += String.join(" ", sentencesToPrint);
         }
 
         // maybe solver can tell us that all moves are loss, except from the one we chose (rare event?)
