@@ -8,6 +8,7 @@ import mcts.policies.playout.MAST;
 import mcts.policies.selection.GraveSelectionPolicy;
 import mcts.policies.selection.ISelectionPolicy;
 import mcts.policies.selection.MostVisitedSelectionPolicy;
+import pns.ProofNumberSearch;
 import utils.AIRegistry;
 
 public class LaunchLudii {
@@ -29,6 +30,15 @@ public class LaunchLudii {
                 () -> {
                     return new ExplainableMcts(
                             selectionPolicy, finalMoveSelectionPolicy, playoutPolicy, useScoreBounds);
+                },
+                (game) -> {
+                    return true;
+                })) System.err.println("WARNING! Failed to register AI because one with that name already existed!");
+
+        if (!AIRegistry.registerAI(
+                "Proof-Number Search",
+                () -> {
+                    return new ProofNumberSearch();
                 },
                 (game) -> {
                     return true;

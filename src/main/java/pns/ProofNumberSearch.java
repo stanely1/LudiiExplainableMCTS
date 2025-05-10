@@ -19,6 +19,8 @@ public class ProofNumberSearch extends AI {
     protected double bestPossibleRank = -1.0;
     protected double worstPossibleRank = -1.0;
 
+    private String analysisReport;
+
     public ProofNumberSearch() {
         friendlyName = "Proof-Number Search";
     }
@@ -39,6 +41,7 @@ public class ProofNumberSearch extends AI {
                     + proofPlayer + "!");
         }
 
+        // TODO: tree reuse
         final PNSNode root = new PNSNode(null, copyContext(context), proofPlayer);
         eval(root);
         setNumbers(root);
@@ -63,11 +66,16 @@ public class ProofNumberSearch extends AI {
             current = updateAncestors(mostProvingNode);
         }
 
-        if (root.proofNumber() == 0) System.out.println("Proved a win!");
-        else System.out.println("Disproved a win!");
+        analysisReport = String.format("[%s] ", this.friendlyName);
+        if (root.proofNumber() == 0) analysisReport += "Proved a win!\n";
+        else if (root.disproofNumber() == 0) analysisReport += "Disproved a win!\n";
+        else
+            analysisReport += String.format(
+                    "Need to prove %d nodes in the subtree to prove this node or disprove %d nodes to disprove it.\n",
+                    root.proofNumber(), root.disproofNumber());
 
         int index = IntStream.range(0, root.children.length)
-                .filter(i -> root.children[i].proofNumber() == 0)
+                .filter(i -> root.children[i] != null && root.children[i].proofNumber() == root.proofNumber())
                 .findFirst()
                 .orElse(ThreadLocalRandom.current().nextInt(root.legalMoves.length));
 
@@ -96,12 +104,12 @@ public class ProofNumberSearch extends AI {
                 node.setDisproofNumber(Integer.MAX_VALUE);
 
                 for (final PNSNode child : node.children()) {
+                    if (child == null) continue;
                     if (node.proofNumber() == Integer.MAX_VALUE || child.proofNumber() == Integer.MAX_VALUE)
                         node.setProofNumber(Integer.MAX_VALUE);
                     else node.setProofNumber(node.proofNumber() + child.proofNumber());
 
-                    if (child != null && child.disproofNumber() < node.disproofNumber())
-                        node.setDisproofNumber(child.disproofNumber());
+                    if (child.disproofNumber() < node.disproofNumber()) node.setDisproofNumber(child.disproofNumber());
                 }
             } else // OR node
             {
@@ -109,26 +117,26 @@ public class ProofNumberSearch extends AI {
                 node.setDisproofNumber(0);
 
                 for (final PNSNode child : node.children()) {
+                    if (child == null) continue;
                     if (node.disproofNumber() == Integer.MAX_VALUE || child.disproofNumber() == Integer.MAX_VALUE)
                         node.setDisproofNumber(Integer.MAX_VALUE);
                     else node.setDisproofNumber(node.disproofNumber() + child.disproofNumber());
 
-                    if (child != null && child.proofNumber() < node.proofNumber())
-                        node.setProofNumber(child.proofNumber());
+                    if (child.proofNumber() < node.proofNumber()) node.setProofNumber(child.proofNumber());
                 }
             }
         } else // leaf node
         {
             switch (node.value()) {
-                case FALSE:
+                case FALSE -> {
                     node.setProofNumber(Integer.MAX_VALUE);
                     node.setDisproofNumber(0);
-                    break;
-                case TRUE:
+                }
+                case TRUE -> {
                     node.setProofNumber(0);
                     node.setDisproofNumber(Integer.MAX_VALUE);
-                    break;
-                case UNKNOWN:
+                }
+                case UNKNOWN -> {
                     if (node.type() == TYPE.AND) {
                         node.setProofNumber(Math.max(1, node.children.length));
                         node.setDisproofNumber(1);
@@ -137,8 +145,7 @@ public class ProofNumberSearch extends AI {
                         node.setProofNumber(1);
                         node.setDisproofNumber(Math.max(1, node.children.length));
                     }
-
-                    break;
+                }
             }
         }
     }
@@ -216,5 +223,10 @@ public class ProofNumberSearch extends AI {
         if (game.hiddenInformation()) return false;
 
         return game.isAlternatingMoveGame();
+    }
+
+    @Override
+    public String generateAnalysisReport() {
+        return analysisReport;
     }
 }
