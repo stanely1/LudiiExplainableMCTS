@@ -18,6 +18,7 @@ import other.AI;
 import other.action.Action;
 import other.context.Context;
 import other.move.Move;
+import pns.ProofNumberSearch;
 import search.mcts.MCTS.MoveKey;
 import search.mcts.MCTS.NGramMoveKey;
 
@@ -32,6 +33,8 @@ public class ExplainableMcts extends AI {
     private final IPlayoutPolicy playoutPolicy;
 
     private final int backpropagationFlags;
+
+    private final ProofNumberSearch pns;
 
     private int lastActionHistorySize = 0;
     private int lastNumIterations = 0;
@@ -58,7 +61,8 @@ public class ExplainableMcts extends AI {
             final ISelectionPolicy selectionPolicy,
             final ISelectionPolicy finalMoveSelectionPolicy,
             final IPlayoutPolicy playoutPolicy,
-            final boolean useScoreBounds) {
+            final boolean useScoreBounds,
+            final boolean usePNS) {
         this.friendlyName = "ExplainableMcts";
 
         if (useScoreBounds) {
@@ -84,13 +88,16 @@ public class ExplainableMcts extends AI {
                 | this.finalMoveSelectionPolicy.getBackpropagationFlags()
                 | this.playoutPolicy.getBackpropagationFlags();
 
+        this.pns = usePNS ? new ProofNumberSearch() : null;
+
         System.out.println(String.format(
-                "[%s] selection policy: %s; final move selection policy: %s; playout policy: %s; backpropagation flags: {%s}",
+                "[%s] selection policy: %s; final move selection policy: %s; playout policy: %s; backpropagation flags: {%s}, use PNS: %b",
                 this.friendlyName,
                 this.selectionPolicy.getName(),
                 this.finalMoveSelectionPolicy.getName(),
                 this.playoutPolicy.getName(),
-                BackpropagationFlags.flagsToString(this.backpropagationFlags)));
+                BackpropagationFlags.flagsToString(this.backpropagationFlags),
+                usePNS));
     }
 
     @Override
@@ -100,6 +107,14 @@ public class ExplainableMcts extends AI {
             final double maxSeconds,
             final int maxIterations,
             final int maxDepth) {
+
+        // run PNS in separate thread
+        final Thread pnsThread = new Thread(() -> {
+            this.pns.selectAction(game, context, maxSeconds, maxIterations, maxDepth);
+        });
+        if (this.pns != null) {
+            pnsThread.start();
+        }
 
         // We'll respect any limitations on max seconds and max iterations (don't care
         // about max depth)
@@ -134,6 +149,15 @@ public class ExplainableMcts extends AI {
 
         this.lastSelectedNode = root.select(this.finalMoveSelectionPolicy);
 
+        // join PNS thread
+        try {
+            pnsThread.join();
+        } catch (InterruptedException e) {
+            System.err.println("WARNING: main thread interrupted.");
+        }
+
+        // TODO: change decision if PNS proved win
+
         this.lastNumIterations = numIterations;
         this.lastMoveValue = lastSelectedNode.getScoreSum(this.player) / lastSelectedNode.getVisitCount();
         this.lastSelectedMove = lastSelectedNode.getMoveFromParent();
@@ -142,6 +166,11 @@ public class ExplainableMcts extends AI {
         final String explanation = generateExplanation();
 
         this.analysisReport = debugString + "\n" + explanation + "\n";
+
+        // TODO: use PNS result in explanation
+        if (this.pns != null) {
+            this.analysisReport += this.pns.generateAnalysisReport();
+        }
 
         return this.lastSelectedMove;
     }
@@ -156,6 +185,10 @@ public class ExplainableMcts extends AI {
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
         this.lastSelectedMove = null;
+
+        if (this.pns != null) {
+            this.pns.initAI(game, playerID);
+        }
     }
 
     @Override
@@ -167,6 +200,10 @@ public class ExplainableMcts extends AI {
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
         this.lastSelectedMove = null;
+
+        if (this.pns != null) {
+            this.pns.closeAI();
+        }
     }
 
     @Override

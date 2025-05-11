@@ -240,10 +240,10 @@ public class ProofNumberSearch extends AI {
         }
 
         if (root == null) {
-            System.err.println("new tree created");
+            // System.err.println("new tree created");
             root = new PNSNode(null, context, proofPlayer);
         } else {
-            System.err.println("reused old tree");
+            // System.err.println("reused old tree");
             root.detachFromParent();
         }
 
