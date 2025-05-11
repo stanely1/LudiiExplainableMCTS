@@ -4,6 +4,7 @@
 package pns;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
 import main.collections.FastArrayList;
 import other.context.Context;
 import other.move.Move;
@@ -20,7 +21,7 @@ public class PNSNode {
         UNKNOWN
     }
 
-    protected final PNSNode parent;
+    protected PNSNode parent;
     protected final TYPE type;
     protected final Context context;
     protected final PNSNode[] children;
@@ -101,5 +102,17 @@ public class PNSNode {
 
     public VALUE value() {
         return value;
+    }
+
+    public PNSNode getChildByMove(final Move move) {
+        int index = IntStream.range(0, legalMoves.length)
+                .filter(i -> legalMoves[i].equals(move))
+                .findFirst()
+                .orElse(-1);
+        return index != -1 ? children[index] : null;
+    }
+
+    public void detachFromParent() {
+        parent = null;
     }
 }

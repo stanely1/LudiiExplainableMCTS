@@ -19,6 +19,9 @@ public class ProofNumberSearch extends AI {
     protected double bestPossibleRank = -1.0;
     protected double worstPossibleRank = -1.0;
 
+    private PNSNode root;
+    private int lastActionHistorySize = 0;
+
     private String analysisReport;
 
     public ProofNumberSearch() {
@@ -41,8 +44,8 @@ public class ProofNumberSearch extends AI {
                     + proofPlayer + "!");
         }
 
-        // TODO: tree reuse
-        final PNSNode root = new PNSNode(null, copyContext(context), proofPlayer);
+        // final PNSNode root = new PNSNode(null, copyContext(context), proofPlayer);
+        initRoot(context);
         eval(root);
         setNumbers(root);
 
@@ -167,20 +170,22 @@ public class ProofNumberSearch extends AI {
 
     private void expandNode(final PNSNode node) {
         final PNSNode[] children = node.children();
+        final Move[] legalMoves = node.legalMoves;
 
         for (int i = 0; i < children.length; ++i) {
             final Context newContext = new Context(node.context());
-            newContext.game().apply(newContext, node.legalMoves[i]);
+            newContext.game().apply(newContext, legalMoves[i]);
             final PNSNode child = new PNSNode(node, newContext, proofPlayer);
             children[i] = child;
+            legalMoves[i] = newContext.trial().lastMove();
 
             eval(child);
             setNumbers(child);
 
-            if ((node.type() == TYPE.OR && child.proofNumber() == 0)
-                    || (node.type() == TYPE.AND && child.disproofNumber() == 0)) {
-                break;
-            }
+            // if ((node.type() == TYPE.OR && child.proofNumber() == 0)
+            //         || (node.type() == TYPE.AND && child.disproofNumber() == 0)) {
+            //     break;
+            // }
         }
 
         node.setExpanded(true);
@@ -200,18 +205,64 @@ public class ProofNumberSearch extends AI {
             }
 
             // Delete (dis)proved subtrees
-            if (node.proofNumber() == 0 || node.disproofNumber() == 0) node.deleteSubtree();
+            // if (node.proofNumber() == 0 || node.disproofNumber() == 0) node.deleteSubtree();
 
             if (node.parent == null) return node;
 
             node = node.parent;
         } while (true);
     }
+
+    private void initRoot(final Context context) {
+        // Tree reuse
+        if (root != null) {
+            // get action history for current state
+            final var actionHistory = context.trial().generateCompleteMovesList();
+
+            // calculate number of moves we need to apply from previous root
+            int offsetActionToTraverse = actionHistory.size() - lastActionHistorySize;
+
+            if (offsetActionToTraverse < 0) {
+                root = null;
+            }
+
+            // apply moves to find new root
+            while (offsetActionToTraverse > 0) {
+                final Move move = actionHistory.get(actionHistory.size() - offsetActionToTraverse);
+                root = root.getChildByMove(move);
+
+                if (root == null) {
+                    break;
+                }
+
+                --offsetActionToTraverse;
+            }
+        }
+
+        if (root == null) {
+            System.err.println("new tree created");
+            root = new PNSNode(null, context, proofPlayer);
+        } else {
+            System.err.println("reused old tree");
+            root.detachFromParent();
+        }
+
+        lastActionHistorySize = context.trial().numMoves();
+    }
     // ------------------------------------------------------------------------------------------------------------
 
     @Override
     public void initAI(final Game game, final int playerID) {
         proofPlayer = playerID;
+        root = null;
+        lastActionHistorySize = 0;
+    }
+
+    @Override
+    public void closeAI() {
+        proofPlayer = -1;
+        root = null;
+        lastActionHistorySize = 0;
     }
 
     @Override
