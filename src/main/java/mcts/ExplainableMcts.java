@@ -156,7 +156,17 @@ public class ExplainableMcts extends AI {
             System.err.println("WARNING: main thread interrupted.");
         }
 
-        // TODO: change decision if PNS proved win
+        // change decision if PNS proved a win
+        if (this.pns != null) {
+            final var pnsNode = this.pns.getSelectedNode();
+            if (pnsNode != null && pnsNode.proofNumber() == 0) {
+                final var mctsNode = root.getChildByMove(pns.getSelectedMove());
+                if (mctsNode != null) {
+                    System.err.println("Changed decision to move proved by PNS");
+                    this.lastSelectedNode = mctsNode;
+                }
+            }
+        }
 
         this.lastNumIterations = numIterations;
         this.lastMoveValue = lastSelectedNode.getScoreSum(this.player) / lastSelectedNode.getVisitCount();

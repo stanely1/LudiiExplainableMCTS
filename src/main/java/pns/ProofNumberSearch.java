@@ -20,6 +20,7 @@ public class ProofNumberSearch extends AI {
     protected double worstPossibleRank = -1.0;
 
     private PNSNode root;
+    private int selectedIndex = -1;
     private int lastActionHistorySize = 0;
 
     private String analysisReport;
@@ -77,12 +78,12 @@ public class ProofNumberSearch extends AI {
                     "Need to prove %d nodes in the subtree to prove this node or disprove %d nodes to disprove it.\n",
                     root.proofNumber(), root.disproofNumber());
 
-        int index = IntStream.range(0, root.children.length)
+        selectedIndex = IntStream.range(0, root.children.length)
                 .filter(i -> root.children[i] != null && root.children[i].proofNumber() == root.proofNumber())
                 .findFirst()
                 .orElse(ThreadLocalRandom.current().nextInt(root.legalMoves.length));
 
-        return root.legalMoves[index];
+        return root.legalMoves[selectedIndex];
     }
 
     private void eval(final PNSNode node) {
@@ -279,5 +280,13 @@ public class ProofNumberSearch extends AI {
     @Override
     public String generateAnalysisReport() {
         return analysisReport;
+    }
+
+    public Move getSelectedMove() {
+        return root.legalMoves[selectedIndex];
+    }
+
+    public PNSNode getSelectedNode() {
+        return root.children[selectedIndex];
     }
 }
