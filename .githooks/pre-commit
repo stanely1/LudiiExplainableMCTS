@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Run gradle spotlessApply to format code
-./gradlew spotlessApply
-
-# Add recently formatted files to the commit
-git diff --name-only --cached | grep -E '\.(kt|java|groovy|scala)$' | xargs git add
