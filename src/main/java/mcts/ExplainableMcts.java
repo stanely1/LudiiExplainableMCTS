@@ -12,6 +12,7 @@ import mcts.policies.IGlobalNGramStatsUser;
 import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.playout.IPlayoutPolicy;
 import mcts.policies.selection.ISelectionPolicy;
+import mcts.policies.selection.PNSFinalMoveSelectionPolicy;
 import mcts.policies.selection.ScoreBoundedFinalMoveSelectionPolicy;
 import mcts.policies.selection.ScoreBoundedSelectionPolicy;
 import other.AI;
@@ -29,11 +30,12 @@ public class ExplainableMcts extends AI {
     private Node root;
 
     private final ISelectionPolicy selectionPolicy;
-    private final ISelectionPolicy finalMoveSelectionPolicy;
+    private ISelectionPolicy finalMoveSelectionPolicy;
     private final IPlayoutPolicy playoutPolicy;
 
     private final int backpropagationFlags;
 
+    // TODO: remove pns running in separate thread ?
     private final ProofNumberSearch pns;
 
     private int lastActionHistorySize = 0;
@@ -73,6 +75,10 @@ public class ExplainableMcts extends AI {
             this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
         }
 
+        if (usePNS) {
+            this.finalMoveSelectionPolicy = new PNSFinalMoveSelectionPolicy(this.finalMoveSelectionPolicy);
+        }
+
         this.playoutPolicy = playoutPolicy;
 
         if (this.playoutPolicy instanceof IGlobalActionStatsUser globalActionStatsPlayoutPolicy) {
@@ -91,13 +97,12 @@ public class ExplainableMcts extends AI {
         this.pns = usePNS ? new ProofNumberSearch() : null;
 
         System.out.println(String.format(
-                "[%s] selection policy: %s; final move selection policy: %s; playout policy: %s; backpropagation flags: {%s}, use PNS: %b",
+                "[%s] selection policy: %s; final move selection policy: %s; playout policy: %s; backpropagation flags: {%s}",
                 this.friendlyName,
                 this.selectionPolicy.getName(),
                 this.finalMoveSelectionPolicy.getName(),
                 this.playoutPolicy.getName(),
-                BackpropagationFlags.flagsToString(this.backpropagationFlags),
-                usePNS));
+                BackpropagationFlags.flagsToString(this.backpropagationFlags)));
     }
 
     @Override
@@ -130,7 +135,8 @@ public class ExplainableMcts extends AI {
         while (numIterations < maxIts
                 && System.currentTimeMillis() < stopTime
                 && !wantsInterrupt
-                && !root.isSolved(this.player)) {
+                && !root.isSolved(this.player)
+                && root.getProofNumber() != 0) {
             Node current = root;
             int currentPlayer = this.player;
 
@@ -286,6 +292,12 @@ public class ExplainableMcts extends AI {
                 }
                 reverseActionSequence.add(reverseTrialIterator.next());
             }
+        }
+
+        if ((this.backpropagationFlags & BackpropagationFlags.PROOF_DISPROOF_NUMBERS) != 0) {
+            debugString += String.format(
+                    ", proof number: %d, disproof number: %d",
+                    lastSelectedNode.getProofNumber(), lastSelectedNode.getDisproofNumber());
         }
 
         if ((this.backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {

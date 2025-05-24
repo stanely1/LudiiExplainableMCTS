@@ -323,14 +323,14 @@ public class Node {
     }
 
     private void propagatePNS(final double[] utilities, final int proofPlayer) {
-        final var proofPlayerScore = utilities[proofPlayer];
-
-        if (proofPlayerScore == WIN_SCORE) {
-            this.proofNumber = 0;
-            this.disproofNumber = Integer.MAX_VALUE;
-        } else if (proofPlayerScore == LOSS_SCORE) {
-            this.proofNumber = Integer.MAX_VALUE;
-            this.disproofNumber = 0;
+        if (this.isTerminal()) {
+            if (utilities[proofPlayer] == WIN_SCORE) {
+                this.proofNumber = 0;
+                this.disproofNumber = Integer.MAX_VALUE;
+            } else {
+                this.proofNumber = Integer.MAX_VALUE;
+                this.disproofNumber = 0;
+            }
         } else if (this.getPlayer() == proofPlayer) {
             // unknown OR node - need to prove 1 child or disprove all children
             this.proofNumber = 1;
@@ -370,6 +370,8 @@ public class Node {
                     node.disproofNumber = Integer.min(node.disproofNumber, child.disproofNumber);
                 }
             }
+
+            node = node.parent;
         }
     }
 }
