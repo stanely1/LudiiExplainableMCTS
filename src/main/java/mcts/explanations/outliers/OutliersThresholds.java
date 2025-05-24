@@ -2,15 +2,15 @@ package mcts.explanations.outliers;
 
 public final class OutliersThresholds {
     private final double epsilon;
-    private final double relativeDelta;
-    private final double absoluteNeutral;
-    private final double absoluteGood;
+    private final double slightDiff;
+    private final double lowAbsVal;
+    private final double highAbsVal;
 
-    private OutliersThresholds(double epsilon, double relativeDelta, double absoluteNeutral, double absoluteGood) {
+    private OutliersThresholds(double epsilon, double slightDiff, double lowAbsVal, double highAbsVal) {
         this.epsilon = epsilon;
-        this.relativeDelta = relativeDelta;
-        this.absoluteNeutral = absoluteNeutral;
-        this.absoluteGood = absoluteGood;
+        this.slightDiff = slightDiff;
+        this.lowAbsVal = lowAbsVal;
+        this.highAbsVal = highAbsVal;
     }
 
     public static OutliersThresholds defaultThresholds() {
@@ -22,15 +22,15 @@ public final class OutliersThresholds {
         return epsilon;
     }
 
-    public double getRelativeDelta() {
-        return relativeDelta;
+    public double getSlightDiff() {
+        return slightDiff;
     }
 
-    public double getAbsoluteNeutral() {
-        return absoluteNeutral;
+    public double getLowAbsVal() {
+        return lowAbsVal;
     }
 
-    public double getAbsoluteGood() {
-        return absoluteGood;
+    public double getHighAbsVal() {
+        return highAbsVal;
     }
 }

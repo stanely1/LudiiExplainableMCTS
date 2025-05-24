@@ -10,6 +10,7 @@ public class Outliers {
     // ---------------------------------------------------------------------------------------------------------
     // score relative to selected node
     private final List<Node> equalNodes = new ArrayList<>();
+
     private final List<Node> slightlyWorseNodes = new ArrayList<>();
     private final List<Node> muchWorseNodes = new ArrayList<>();
 
@@ -19,6 +20,7 @@ public class Outliers {
     // ---------------------------------------------------------------------------------------------------------
     // absolute score
     private final List<Node> neutralNodes = new ArrayList<>();
+
     private final List<Node> badNodes = new ArrayList<>();
     private final List<Node> veryBadNodes = new ArrayList<>();
 
@@ -32,7 +34,7 @@ public class Outliers {
     }
 
     public Outliers(
-            Node root, Node selectedNode, Function<Node, Double> nodeRankFunction, OutliersThresholds THRESHOLDS) {
+            Node root, Node selectedNode, Function<Node, Double> nodeRankFunction, OutliersThresholds thresholds) {
         double selectedRank = nodeRankFunction.apply(selectedNode);
         List<Node> children = root.getChildren();
 
@@ -41,10 +43,10 @@ public class Outliers {
 
             // populate relative lists
             double diff = Math.abs(tempRank - selectedRank);
-            if (diff <= THRESHOLDS.getEpsilon()) {
+            if (diff <= thresholds.getEpsilon()) {
                 equalNodes.add(c);
 
-            } else if (diff < THRESHOLDS.getRelativeDelta()) {
+            } else if (diff < thresholds.getSlightDiff()) {
                 if (tempRank > selectedRank) {
                     slightlyBetterNodes.add(c);
                 } else {
@@ -61,10 +63,10 @@ public class Outliers {
             // ---------------------------------------------------------------------------------------------------------
             // populate absolute lists
             double absVal = Math.abs(tempRank);
-            if (absVal <= THRESHOLDS.getAbsoluteNeutral()) {
+            if (absVal <= thresholds.getLowAbsVal()) {
                 neutralNodes.add(c);
 
-            } else if (absVal < THRESHOLDS.getAbsoluteGood()) {
+            } else if (absVal < thresholds.getHighAbsVal()) {
                 if (tempRank > 0.0) {
                     goodNodes.add(c);
                 } else {
