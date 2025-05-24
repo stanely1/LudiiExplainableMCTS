@@ -1,0 +1,11 @@
+{
+  "useScoreBounds": false,
+  "usePNS": false,
+  "selectionPolicy": "UCB1",
+  "finalMoveSelectionPolicy": "RobustChild",
+  "playoutPolicy": "Uniform",
+  "graveBias": 1e-6,
+  "graveRef": 100,
+  "epsilon": 0.1,
+  "maxNGramLength": 3
+}

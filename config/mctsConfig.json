@@ -1,0 +1,10 @@
+{
+  "useScoreBounds": true,
+  "usePNS": true,
+  "selectionPolicy": "GRAVE",
+  "finalMoveSelectionPolicy": "RobustChild",
+  "playoutPolicy": "MAST",
+  "graveBias": 1e-6,
+  "epsilon": 0.1,
+  "maxNGramLength": 3
+}
