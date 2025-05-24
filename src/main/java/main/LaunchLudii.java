@@ -1,50 +1,51 @@
 package main;
 
 import app.StartDesktopApp;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import mcts.ExplainableMcts;
-import mcts.policies.playout.IPlayoutPolicy;
-// import mcts.policies.playout.NST;
-import mcts.policies.playout.MAST;
-import mcts.policies.selection.GraveSelectionPolicy;
-import mcts.policies.selection.ISelectionPolicy;
-import mcts.policies.selection.MostVisitedSelectionPolicy;
-import pns.ProofNumberSearch;
 import utils.AIRegistry;
 
 public class LaunchLudii {
     public static void main(final String[] args) {
-        final boolean useScoreBounds = true;
-        final boolean usePNS = true;
 
-        final double graveBias = 1e-6;
-        final int graveRef = 100;
-        final double eps = 0.1;
-        final int maxNGramLength = 3;
+        // Always load config from config.json in working directory
+        String configPath = "config.json";
+        String jsonConfig;
+        try {
+            byte[] bytes = Files.readAllBytes(Paths.get(configPath));
+            jsonConfig = new String(bytes, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            System.err.println("Failed to read config.json: " + e.getMessage());
+            System.exit(1);
+            return;
+        }
 
-        final ISelectionPolicy selectionPolicy = new GraveSelectionPolicy(graveBias, graveRef);
-        final ISelectionPolicy finalMoveSelectionPolicy = new MostVisitedSelectionPolicy();
-        final IPlayoutPolicy playoutPolicy = new MAST(eps);
-        // final IPlayoutPolicy playoutPolicy = new NST(maxNGramLength, eps);
+        ExplainableMcts ai;
+        try {
+            ai = ExplainableMctsFactory.fromJson(jsonConfig);
+        } catch (IOException e) {
+            System.err.println("Failed to parse config.json: " + e.getMessage());
+            System.exit(1);
+            return;
+        }
 
-        if (!AIRegistry.registerAI(
-                "Explainable MCTS",
-                () -> {
-                    return new ExplainableMcts(
-                            selectionPolicy, finalMoveSelectionPolicy, playoutPolicy, useScoreBounds, usePNS);
-                },
-                (game) -> {
-                    return true;
-                })) System.err.println("WARNING! Failed to register AI because one with that name already existed!");
+        // Register Explainable MCTS
+        if (!AIRegistry.registerAI("Explainable MCTS", () -> ai, game -> true)) {
+            System.err.println("WARNING! Explainable MCTS already registered.");
+        }
 
-        if (!AIRegistry.registerAI(
-                "Proof-Number Search",
-                () -> {
-                    return new ProofNumberSearch();
-                },
-                (game) -> {
-                    return true;
-                })) System.err.println("WARNING! Failed to register AI because one with that name already existed!");
+        // Register Proof-Number Search
+        // if (!AIRegistry.registerAI(
+        //         "Proof-Number Search",
+        //         ProofNumberSearch::new,
+        //         game -> true)) {
+        //     System.err.println("WARNING! Proof-Number Search already registered.");
+        // }
 
+        // Launch Ludii desktop UI
         StartDesktopApp.main(new String[0]);
     }
 }
