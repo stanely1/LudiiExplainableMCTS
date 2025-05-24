@@ -3,8 +3,9 @@
   "usePNS": true,
   "selectionPolicy": "GRAVE",
   "finalMoveSelectionPolicy": "RobustChild",
-  "playoutPolicy": "MAST",
+  "playoutPolicy": "NST",
   "graveBias": 1e-6,
+  "graveRef": 100,
   "epsilon": 0.1,
   "maxNGramLength": 3
 }
