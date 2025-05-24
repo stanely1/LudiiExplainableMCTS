@@ -141,7 +141,7 @@ public class ExplainableMcts extends AI {
 
             final Node newNode = current.expand();
             final SimulationResult simRes = newNode.simulate(playoutPolicy);
-            newNode.propagate(simRes, this.backpropagationFlags);
+            newNode.propagate(simRes, this.backpropagationFlags, this.player);
             propagateGlobalStats(simRes);
 
             numIterations++;
@@ -195,6 +195,10 @@ public class ExplainableMcts extends AI {
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
         this.lastSelectedMove = null;
+        this.analysisReport = null;
+
+        this.globalActionStats.clear();
+        this.globalNGramStats.clear();
 
         if (this.pns != null) {
             this.pns.initAI(game, playerID);
@@ -210,6 +214,10 @@ public class ExplainableMcts extends AI {
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
         this.lastSelectedMove = null;
+        this.analysisReport = null;
+
+        this.globalActionStats.clear();
+        this.globalNGramStats.clear();
 
         if (this.pns != null) {
             this.pns.closeAI();

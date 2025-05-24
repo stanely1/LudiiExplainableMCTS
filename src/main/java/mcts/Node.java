@@ -36,6 +36,10 @@ public class Node {
 
     private final Map<MoveKey, ActionStats> statisticsAMAF = new HashMap<>();
 
+    // PNS
+    private int proofNumber = -1;
+    private int disproofNumber = -1;
+
     private final List<Node> children = new ArrayList<>();
     private final FastArrayList<Move> unexpandedMoves;
 
@@ -110,6 +114,14 @@ public class Node {
 
     public double getOptimisticScore(final int player) {
         return optimisticScores[player];
+    }
+
+    public int getProofNumber() {
+        return proofNumber;
+    }
+
+    public int getDisproofNumber() {
+        return disproofNumber;
     }
 
     public List<Node> getChildren() {
@@ -212,9 +224,10 @@ public class Node {
         return new SimulationResult(tempContext, RankUtils.utilities(tempContext));
     }
 
-    public void propagate(final SimulationResult simRes, final int flags) {
+    public void propagate(final SimulationResult simRes, final int flags, final int proofPlayer) {
         final boolean useScoreBounds = ((flags & BackpropagationFlags.SCORE_BOUNDS) != 0);
         final boolean useAMAF = ((flags & BackpropagationFlags.AMAF_STATS) != 0);
+        final boolean usePNS = ((flags & BackpropagationFlags.PROOF_DISPROOF_NUMBERS) != 0);
 
         final var utilities = simRes.utilities();
 
@@ -224,6 +237,10 @@ public class Node {
 
         if (useAMAF) {
             propagateScoreAMAF(simRes);
+        }
+
+        if (usePNS) {
+            propagatePNS(utilities, proofPlayer);
         }
 
         Node node = this;
@@ -302,6 +319,57 @@ public class Node {
                 }
             }
             node = node.parent;
+        }
+    }
+
+    private void propagatePNS(final double[] utilities, final int proofPlayer) {
+        final var proofPlayerScore = utilities[proofPlayer];
+
+        if (proofPlayerScore == WIN_SCORE) {
+            this.proofNumber = 0;
+            this.disproofNumber = Integer.MAX_VALUE;
+        } else if (proofPlayerScore == LOSS_SCORE) {
+            this.proofNumber = Integer.MAX_VALUE;
+            this.disproofNumber = 0;
+        } else if (this.getPlayer() == proofPlayer) {
+            // unknown OR node - need to prove 1 child or disprove all children
+            this.proofNumber = 1;
+            this.disproofNumber = this.children.size() + this.unexpandedMoves.size();
+        } else {
+            // unknown AND node - need to prove all children or disprove 1 child
+            this.proofNumber = this.children.size() + this.unexpandedMoves.size();
+            this.disproofNumber = 1;
+        }
+
+        Node node = this.parent;
+        while (node != null) {
+            if (node.getPlayer() == proofPlayer) {
+                // OR node - proof number is min over children, disproof number is sum
+                node.proofNumber = Integer.MAX_VALUE;
+                node.disproofNumber = 0;
+
+                for (final var child : node.children) {
+                    if (Integer.max(node.disproofNumber, child.disproofNumber) == Integer.MAX_VALUE) {
+                        node.disproofNumber = Integer.MAX_VALUE;
+                    } else {
+                        node.disproofNumber += child.disproofNumber;
+                    }
+                    node.proofNumber = Integer.min(node.proofNumber, child.proofNumber);
+                }
+            } else {
+                // AND node - proof number is sum over children, disproof number is min
+                node.proofNumber = 0;
+                node.disproofNumber = Integer.MAX_VALUE;
+
+                for (final var child : node.children) {
+                    if (Integer.max(node.proofNumber, child.proofNumber) == Integer.MAX_VALUE) {
+                        node.proofNumber = Integer.MAX_VALUE;
+                    } else {
+                        node.proofNumber += child.proofNumber;
+                    }
+                    node.disproofNumber = Integer.min(node.disproofNumber, child.disproofNumber);
+                }
+            }
         }
     }
 }
