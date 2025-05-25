@@ -56,6 +56,6 @@ tasks.register('downloadLudiiJarWindows', Exec) {
                 "Invoke-WebRequest 'https://ludii.games/downloads/Ludii-1.3.14.jar' -OutFile 'lib/Ludii-1.3.14.jar' -UseBasicParsing"
 }
 
-tasks.named('compileJava') {
-    dependsOn tasks.named('downloadLudiiJar')
-}
+// tasks.named('compileJava') {
+//     dependsOn tasks.named('downloadLudiiJar')
+// }
