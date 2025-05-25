@@ -1,17 +1,13 @@
 package mcts.explanations;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
-import mcts.ActionStats;
-import mcts.Node;
+import mcts.*;
 import mcts.explanations.outliers.Outliers;
 import mcts.policies.selection.ISelectionPolicy;
 import other.action.Action;
 import other.move.Move;
-import search.mcts.MCTS.MoveKey;
-import search.mcts.MCTS.NGramMoveKey;
+import search.mcts.MCTS.*;
 
 public class ExplanationGenerator {
     private final Node root;
@@ -45,7 +41,7 @@ public class ExplanationGenerator {
     }
 
     public String generateExplanation() {
-        Function<Move, String> moveToString = move -> move.actions().stream()
+        final Function<Move, String> moveToString = move -> move.actions().stream()
                 .filter(Action::isDecision)
                 .findFirst()
                 .map(a -> a.toTurnFormat(root.getContext(), true))
@@ -193,33 +189,81 @@ public class ExplanationGenerator {
             }
         }
 
-        // --------------------------------------------------------------------------------------------------------------
+        // -------------------------------------------------------------------------------------------------------------------------------------------
         // Outliers 🥰
+        //
+        // Relative score with respect to the *selected move*
         // getEqualNodes, getSlightlyWorseNodes, getMuchWorseNodes, getSlightlyBetterNodes, getMuchBetterNodes
+        //
+        //
+        // Absolute score
         // getNeutralNodes, getBadNodes, getVeryBadNodes, getGoodNodes, getVeryGoodNodes
-        // --------------------------------------------------------------------------------------------------------------
+        // -------------------------------------------------------------------------------------------------------------------------------------------
         //         Warianty sytuacji (outliers):
-        // 1. dominating solution - Mamy jeden ruch/dziecko które wybitnie spełnia zadane kryterium,
-        // 2. a few - mamy takich kilka, ale stanowią mniejszość pośród wszystkich dostępnych,
-        // 3. none - nie ma outlierów, wszystko podobne, trzy warianty: wszystko dobre, wszystko średnie, wszystko złe,
-        // 4. All good except or a few - generalnie jest OK, ale niektórzy są istotnie gorsi
-        // --------------------------------------------------------------------------------------------------------------
+        // 1. Dominating solution, One solution that outlies the others
+        // 2. A few - we have a few of these, but they are a minority among all available
+        // 3. None - there are no outliers, everything is similar; three variants: everything is good, everything is
+        // average, everything is bad
+        // 4. All good except or a few - Overall it's OK, but some are significantly worse.
+        // -------------------------------------------------------------------------------------------------------------------------------------------
 
-        Function<Node, Double> getNodeAverage = _node -> _node.getScoreSum(player) / _node.getVisitCount();
-        var averageOutliers = new Outliers(root, selectedNode, getNodeAverage);
-
-        if(averageOutliers.getVeryGoodNodes().size() == 1 && averageOutliers.getVeryGoodNodes().contains(selectedNode)) {
-            explanation += "This selected move outlies other moves by the average score";
-        }
-        
-        if(averageOutliers.getVeryBadNodes().size() == 1 && averageOutliers.getVeryBadNodes().contains(selectedNode)) {
-            explanation += "This selected move outlies other moves by the average score";
-        }
-        
-        if (explanation.equals("")) {
-            explanation = "This move was selected because it is currently the best available option.";
-        }
+        Function<Node, Double> getNodeAverageEval = _node -> _node.getScoreSum(player) / _node.getVisitCount();
+        String becauseNodeAverage = "Because node average score";
+        explanation += getOutliersExplanation(getNodeAverageEval, becauseNodeAverage);
 
         return explanation;
+    }
+
+    private String getOutliersExplanation(Function<Node, Double> evalNode, String becauseString) {
+        String outliersExplanation = "";
+        var outliers = new Outliers(root, selectedNode, evalNode);
+
+        // 1. Dominating solution, One solution that outlies the others
+        if (outliers.getVeryGoodNodes().size() == 1) {
+            if (outliers.getVeryGoodNodes().contains(selectedNode)) {
+                outliersExplanation += "This selected move outlies other moves " + becauseString + ". ";
+            } else {
+                outliersExplanation += "There was one very good move, but it wasn't selected. " + becauseString + ". ";
+            }
+        }
+
+        // 2. a few - we have a few of these, but they are a minority among all available
+        if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10 && outliers.getVeryGoodNodes().size() != 0) {
+            outliersExplanation += String.format(
+                    "There is %d very good moves. ", outliers.getVeryGoodNodes().size());
+
+            if (outliers.getVeryGoodNodes().contains(selectedNode)) {
+                outliersExplanation += String.format("Move was among %d best moves. ");
+            } else {
+                outliersExplanation += String.format("Selected move was not one of them.");
+            }
+        }
+
+        // 3. None - there are no outliers, everything is similar; three variants: everything is good, everything is
+        // average, everything is bad
+        // if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10) {
+        //     outliersExplanation += String.format(
+        //             "There is %d very good moves. ", outliers.getVeryGoodNodes().size());
+
+        //     if (outliers.getVeryGoodNodes().contains(selectedNode)) {
+        //         outliersExplanation += String.format("Move was among %d best moves. ");
+        //     } else {
+        //         outliersExplanation += String.format("Selected move was not one of them.");
+        //     }
+        // }
+
+        // 4. All good except or a few - Overall it's OK, but some are significantly worse.
+        // if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10) {
+        //     outliersExplanation += String.format(
+        //             "There is %d very good moves. ", outliers.getVeryGoodNodes().size());
+
+        //     if (outliers.getVeryGoodNodes().contains(selectedNode)) {
+        //         outliersExplanation += String.format("Move was among %d best moves. ");
+        //     } else {
+        //         outliersExplanation += String.format("Selected move was not one of them.");
+        //     }
+        // }
+
+        return outliersExplanation;
     }
 }
