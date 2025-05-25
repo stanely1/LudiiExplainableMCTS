@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.function.Function;
 import mcts.ActionStats;
 import mcts.Node;
+import mcts.explanations.outliers.Outliers;
 import mcts.policies.selection.ISelectionPolicy;
 import other.action.Action;
 import other.move.Move;
@@ -192,6 +193,29 @@ public class ExplanationGenerator {
             }
         }
 
+        // --------------------------------------------------------------------------------------------------------------
+        // Outliers 🥰
+        // getEqualNodes, getSlightlyWorseNodes, getMuchWorseNodes, getSlightlyBetterNodes, getMuchBetterNodes
+        // getNeutralNodes, getBadNodes, getVeryBadNodes, getGoodNodes, getVeryGoodNodes
+        // --------------------------------------------------------------------------------------------------------------
+        //         Warianty sytuacji (outliers):
+        // 1. dominating solution - Mamy jeden ruch/dziecko które wybitnie spełnia zadane kryterium,
+        // 2. a few - mamy takich kilka, ale stanowią mniejszość pośród wszystkich dostępnych,
+        // 3. none - nie ma outlierów, wszystko podobne, trzy warianty: wszystko dobre, wszystko średnie, wszystko złe,
+        // 4. All good except or a few - generalnie jest OK, ale niektórzy są istotnie gorsi
+        // --------------------------------------------------------------------------------------------------------------
+
+        Function<Node, Double> getNodeAverage = _node -> _node.getScoreSum(player) / _node.getVisitCount();
+        var averageOutliers = new Outliers(root, selectedNode, getNodeAverage);
+
+        if(averageOutliers.getVeryGoodNodes().size() == 1 && averageOutliers.getVeryGoodNodes().contains(selectedNode)) {
+            explanation += "This selected move outlies other moves by the average score";
+        }
+        
+        if(averageOutliers.getVeryBadNodes().size() == 1 && averageOutliers.getVeryBadNodes().contains(selectedNode)) {
+            explanation += "This selected move outlies other moves by the average score";
+        }
+        
         if (explanation.equals("")) {
             explanation = "This move was selected because it is currently the best available option.";
         }
