@@ -228,14 +228,15 @@ public class ExplanationGenerator {
         }
 
         // 2. a few - we have a few of these, but they are a minority among all available
-        if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10 && outliers.getVeryGoodNodes().size() != 0) {
+        if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10
+                && !outliers.getVeryGoodNodes().isEmpty()) {
             outliersExplanation += String.format(
                     "There is %d very good moves. ", outliers.getVeryGoodNodes().size());
 
             if (outliers.getVeryGoodNodes().contains(selectedNode)) {
-                outliersExplanation += String.format("Move was among %d best moves. ");
+                outliersExplanation += String.format("Selected move was among best moves. ");
             } else {
-                outliersExplanation += String.format("Selected move was not one of them.");
+                outliersExplanation += String.format("Selected move was not one of them. ");
             }
         }
 
