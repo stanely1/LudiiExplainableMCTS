@@ -41,13 +41,51 @@ public class ExplanationGenerator {
     }
 
     public String generateExplanation() {
-        final Function<Move, String> moveToString = move -> move.actions().stream()
+        String explanation = String.format("Selected move: %s.\n", moveToString(selectedMove));
+
+        explanation += basicExplanation();
+        explanation += scoreBoundsExplanation();
+        explanation += mastExplanation();
+        explanation += nstExplanation();
+        explanation += graveExplanation();
+
+        // -------------------------------------------------------------------------------------------------------------------------------------------
+        // Outliers 🥰
+        //
+        // Relative score with respect to the *selected move*
+        // getEqualNodes, getSlightlyWorseNodes, getMuchWorseNodes, getSlightlyBetterNodes,
+        // getMuchBetterNodes
+        //
+        //
+        // Absolute score
+        // getNeutralNodes, getBadNodes, getVeryBadNodes, getGoodNodes, getVeryGoodNodes
+        // -------------------------------------------------------------------------------------------------------------------------------------------
+        //         Warianty sytuacji (outliers):
+        // 1. Dominating solution, One solution that outlies the others
+        // 2. A few - we have a few of these, but they are a minority among all available
+        // 3. None - there are no outliers, everything is similar; three variants: everything is good,
+        // everything is
+        // average, everything is bad
+        // 4. All good except or a few - Overall it's OK, but some are significantly worse.
+        // -------------------------------------------------------------------------------------------------------------------------------------------
+
+        Function<Node, Double> getNodeAverageEval = _node -> _node.getScoreSum(player) / _node.getVisitCount();
+        String becauseNodeAverage = "Because node average score";
+        explanation += getOutliersExplanation(getNodeAverageEval, becauseNodeAverage);
+
+        return explanation;
+    }
+
+    private String moveToString(final Move move) {
+        return move.actions().stream()
                 .filter(Action::isDecision)
                 .findFirst()
                 .map(a -> a.toTurnFormat(root.getContext(), true))
                 .orElse(null);
+    }
 
-        String explanation = String.format("Selected move: %s.\n", moveToString.apply(selectedMove));
+    private String basicExplanation() {
+        String explanation = "";
 
         // comparison with other moves
         if (root.getChildren().size() == 1) {
@@ -66,11 +104,11 @@ public class ExplanationGenerator {
 
                 final var childScore = this.finalMoveSelectionPolicy.getNodeValue(childNode);
                 if (childScore == selectedMoveScore) {
-                    equalMoveStrings.add(moveToString.apply(childNode.getMoveFromParent()));
+                    equalMoveStrings.add(moveToString(childNode.getMoveFromParent()));
                 } else if (childScore / selectedMoveScore > 0.75) {
-                    slightlyWorseMoveStrings.add(moveToString.apply(childNode.getMoveFromParent()));
+                    slightlyWorseMoveStrings.add(moveToString(childNode.getMoveFromParent()));
                 } else {
-                    muchWorseMoveStrings.add(moveToString.apply(childNode.getMoveFromParent()));
+                    muchWorseMoveStrings.add(moveToString(childNode.getMoveFromParent()));
                 }
             }
 
@@ -93,9 +131,12 @@ public class ExplanationGenerator {
             explanation += String.join(" ", sentencesToPrint);
         }
 
-        // maybe solver can tell us that all moves are loss, except from the one we chose (rare event?)
+        return explanation;
+    }
 
-        // Score Bounds (Solver)
+    private String scoreBoundsExplanation() {
+        String explanation = "";
+
         if (selectedNode.isSolved(player)) {
             explanation += " ";
 
@@ -119,11 +160,11 @@ public class ExplanationGenerator {
                 final var nextNode = node.select(this.finalMoveSelectionPolicy);
                 final var currentPlayer = node.getPlayer();
                 if (currentPlayer == this.player) {
-                    explanation += String.format("we will play %s, ", moveToString.apply(nextNode.getMoveFromParent()));
+                    explanation += String.format("we will play %s, ", moveToString(nextNode.getMoveFromParent()));
                 } else {
                     explanation += String.format(
                             "player %d will most likely play %s, ",
-                            currentPlayer, moveToString.apply(nextNode.getMoveFromParent()));
+                            currentPlayer, moveToString(nextNode.getMoveFromParent()));
                 }
 
                 explanation += "then ";
@@ -133,17 +174,25 @@ public class ExplanationGenerator {
             explanation += String.format("the game ends with a %s.", gameResult);
         }
 
-        // MAST
+        return explanation;
+    }
+
+    private String mastExplanation() {
+        String explanation = "";
+
         final var moveKey = new MoveKey(selectedMove, 0);
         if (globalActionStats.containsKey(moveKey)) {
             final var moveStats = globalActionStats.get(moveKey);
             if (moveStats.scoreSums[this.player] / moveStats.visitCount > 0.25) {
-                if (!explanation.equals("")) explanation += " ";
-                explanation += "This move generally performs well, regardless of when it is played.";
+                explanation += " This move generally performs well, regardless of when it is played.";
             }
         }
+        return explanation;
+    }
 
-        // NST
+    private String nstExplanation() {
+        String explanation = "";
+
         final List<Move> reverseActionSequence = new ArrayList<>();
         reverseActionSequence.add(selectedMove);
         final var reverseTrialIterator = root.getContext().trial().reverseMoveIterator();
@@ -158,7 +207,7 @@ public class ExplanationGenerator {
             if (globalNGramStats.containsKey(nGramKey)) {
                 final var nGramStats = globalNGramStats.get(nGramKey);
                 if (nGramStats.scoreSums[this.player] / nGramStats.visitCount > 0.25) {
-                    if (!explanation.equals("")) explanation += " ";
+                    explanation += " ";
 
                     switch (n) {
                         case 1 -> explanation += "This move generally performs well, regardless of when it is played.";
@@ -179,38 +228,19 @@ public class ExplanationGenerator {
             reverseActionSequence.add(reverseTrialIterator.next());
         }
 
-        // AMAF (GRAVE)
+        return explanation;
+    }
+
+    private String graveExplanation() {
+        String explanation = "";
+
         final var visitCountAMAF = root.getVisitCountAMAF(selectedMove);
         if (visitCountAMAF > 0) {
             final var scoreAMAF = root.getScoreSumAMAF(selectedMove, this.player) / visitCountAMAF;
             if (scoreAMAF > 0.5) {
-                if (!explanation.equals("")) explanation += " ";
-                explanation += "This move tends to perform well in game phases that follow the current state.";
+                explanation += " This move tends to perform well in game phases that follow the current state.";
             }
         }
-
-        // -------------------------------------------------------------------------------------------------------------------------------------------
-        // Outliers 🥰
-        //
-        // Relative score with respect to the *selected move*
-        // getEqualNodes, getSlightlyWorseNodes, getMuchWorseNodes, getSlightlyBetterNodes, getMuchBetterNodes
-        //
-        //
-        // Absolute score
-        // getNeutralNodes, getBadNodes, getVeryBadNodes, getGoodNodes, getVeryGoodNodes
-        // -------------------------------------------------------------------------------------------------------------------------------------------
-        //         Warianty sytuacji (outliers):
-        // 1. Dominating solution, One solution that outlies the others
-        // 2. A few - we have a few of these, but they are a minority among all available
-        // 3. None - there are no outliers, everything is similar; three variants: everything is good, everything is
-        // average, everything is bad
-        // 4. All good except or a few - Overall it's OK, but some are significantly worse.
-        // -------------------------------------------------------------------------------------------------------------------------------------------
-
-        Function<Node, Double> getNodeAverageEval = _node -> _node.getScoreSum(player) / _node.getVisitCount();
-        String becauseNodeAverage = "Because node average score";
-        explanation += getOutliersExplanation(getNodeAverageEval, becauseNodeAverage);
-
         return explanation;
     }
 
@@ -240,7 +270,8 @@ public class ExplanationGenerator {
             }
         }
 
-        // 3. None - there are no outliers, everything is similar; three variants: everything is good, everything is
+        // 3. None - there are no outliers, everything is similar; three variants: everything is good,
+        // everything is
         // average, everything is bad
         // if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10) {
         //     outliersExplanation += String.format(
