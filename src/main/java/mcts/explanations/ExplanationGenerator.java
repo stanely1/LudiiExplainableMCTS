@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.function.Function;
 import mcts.*;
 import mcts.explanations.outliers.Outliers;
+import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.selection.ISelectionPolicy;
 import other.action.Action;
 import other.move.Move;
@@ -19,6 +20,8 @@ public class ExplanationGenerator {
 
     private final ISelectionPolicy finalMoveSelectionPolicy;
 
+    private final int backpropagationFlags;
+
     private final Move selectedMove;
     private final int player;
 
@@ -28,13 +31,15 @@ public class ExplanationGenerator {
             final Map<MoveKey, ActionStats> globalActionStats,
             final Map<NGramMoveKey, ActionStats> globalNGramStats,
             final int maxNGramLength,
-            final ISelectionPolicy finalMoveSelectionPolicy) {
+            final ISelectionPolicy finalMoveSelectionPolicy,
+            final int backpropagationFlags) {
         this.root = root;
         this.selectedNode = selectedNode;
         this.globalActionStats = globalActionStats;
         this.globalNGramStats = globalNGramStats;
         this.maxNGramLength = maxNGramLength;
         this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
+        this.backpropagationFlags = backpropagationFlags;
 
         this.selectedMove = this.selectedNode.getMoveFromParent();
         this.player = root.getPlayer();
@@ -69,9 +74,24 @@ public class ExplanationGenerator {
         // 4. All good except or a few - Overall it's OK, but some are significantly worse.
         // -------------------------------------------------------------------------------------------------------------------------------------------
 
+        explanation += "\n";
+
         Function<Node, Double> getNodeAverageEval = _node -> _node.getScoreSum(player) / _node.getVisitCount();
-        String becauseNodeAverage = "Because node average score";
-        explanation += getOutliersExplanation(getNodeAverageEval, becauseNodeAverage);
+        explanation += " " + getOutliersExplanation(getNodeAverageEval, "average score");
+
+        if ((backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
+            Function<Node, Double> getNodeGraveEval = _node -> root.getScoreSumAMAF(_node.getMoveFromParent(), player)
+                    / root.getVisitCountAMAF(_node.getMoveFromParent());
+            explanation += " " + getOutliersExplanation(getNodeGraveEval, "AMAF score");
+        }
+
+        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
+            Function<Node, Double> getMastEval = _node -> {
+                final var aStats = globalActionStats.get(new MoveKey(_node.getMoveFromParent(), 0));
+                return aStats.scoreSums[player] / aStats.visitCount;
+            };
+            explanation += " " + getOutliersExplanation(getMastEval, "MAST score");
+        }
 
         return explanation;
     }
@@ -244,58 +264,63 @@ public class ExplanationGenerator {
         return explanation;
     }
 
-    private String getOutliersExplanation(Function<Node, Double> evalNode, String becauseString) {
-        String outliersExplanation = "";
+    private String getOutliersExplanation(Function<Node, Double> evalNode, String criteria) {
+        List<String> messages = new ArrayList<>();
         var outliers = new Outliers(root, selectedNode, evalNode);
+        int totalChildren = root.getChildren().size();
 
         // 1. Dominating solution, One solution that outlies the others
-        if (outliers.getVeryGoodNodes().size() == 1) {
-            if (outliers.getVeryGoodNodes().contains(selectedNode)) {
-                outliersExplanation += "This selected move outlies other moves " + becauseString + ". ";
-            } else {
-                outliersExplanation += "There was one very good move, but it wasn't selected. " + becauseString + ". ";
-            }
+        var veryGoodNodes = outliers.get("veryGood");
+        if (veryGoodNodes.size() == 1) {
+            messages.add(formatCategory(
+                    "very good", veryGoodNodes.size(), totalChildren, veryGoodNodes.contains(selectedNode), criteria));
         }
 
         // 2. a few - we have a few of these, but they are a minority among all available
-        if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10
-                && !outliers.getVeryGoodNodes().isEmpty()) {
-            outliersExplanation += String.format(
-                    "There is %d very good moves. ", outliers.getVeryGoodNodes().size());
-
-            if (outliers.getVeryGoodNodes().contains(selectedNode)) {
-                outliersExplanation += String.format("Selected move was among best moves. ");
-            } else {
-                outliersExplanation += String.format("Selected move was not one of them. ");
-            }
+        else if (veryGoodNodes.size() < root.getChildren().size() / 10 && !veryGoodNodes.isEmpty()) {
+            messages.add(formatCategory(
+                    "very good", veryGoodNodes.size(), totalChildren, veryGoodNodes.contains(selectedNode), criteria));
         }
 
         // 3. None - there are no outliers, everything is similar; three variants: everything is good,
-        // everything is
-        // average, everything is bad
-        // if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10) {
-        //     outliersExplanation += String.format(
-        //             "There is %d very good moves. ", outliers.getVeryGoodNodes().size());
+        for (Map.Entry<String, List<Node>> entry : outliers.getOutliersMap().entrySet()) {
+            String category = entry.getKey();
+            List<Node> nodes = entry.getValue();
 
-        //     if (outliers.getVeryGoodNodes().contains(selectedNode)) {
-        //         outliersExplanation += String.format("Move was among %d best moves. ");
-        //     } else {
-        //         outliersExplanation += String.format("Selected move was not one of them.");
-        //     }
-        // }
+            if (nodes.size() == totalChildren) {
+                messages.add(String.format("All nodes are in %s category by the %s criteria.", category, criteria));
+                // break;
+            }
+        }
 
         // 4. All good except or a few - Overall it's OK, but some are significantly worse.
-        // if (outliers.getVeryGoodNodes().size() < root.getChildren().size() / 10) {
-        //     outliersExplanation += String.format(
-        //             "There is %d very good moves. ", outliers.getVeryGoodNodes().size());
+        var goodNodes = outliers.get("good");
+        int totalGoodAndVeryGood = goodNodes.size() + veryGoodNodes.size();
+        if (totalGoodAndVeryGood < totalChildren && totalGoodAndVeryGood > totalChildren * 8 / 10) {
+            messages.add(formatCategory(
+                    "good and very good",
+                    totalGoodAndVeryGood,
+                    totalChildren,
+                    goodNodes.contains(selectedNode) || veryGoodNodes.contains(selectedNode),
+                    criteria));
 
-        //     if (outliers.getVeryGoodNodes().contains(selectedNode)) {
-        //         outliersExplanation += String.format("Move was among %d best moves. ");
-        //     } else {
-        //         outliersExplanation += String.format("Selected move was not one of them.");
-        //     }
-        // }
+            var neutralNodes = outliers.get("neutral");
+            if (!neutralNodes.isEmpty()) {
+                messages.add(String.format("%d out of remaining moves were considered neutral.", neutralNodes.size()));
+            }
+            if (!outliers.get("bad").isEmpty() || !outliers.get("veryBad").isEmpty()) {
+                messages.add("The remaining nodes were bad or very bad.");
+            }
+        }
 
-        return outliersExplanation;
+        return String.join(" ", messages);
+    }
+
+    private String formatCategory(
+            String label, int count, int totalCount, boolean selectedInCategory, String criteria) {
+        String template = String.format(
+                "There are %d %s moves (out of %d) by the %s criteria; the selected move is %s among them.",
+                count, label, totalCount, criteria, selectedInCategory ? "" : "not");
+        return template;
     }
 }

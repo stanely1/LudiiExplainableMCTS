@@ -330,7 +330,8 @@ public class ExplainableMcts extends AI {
                 this.globalActionStats,
                 this.globalNGramStats,
                 this.maxNGramLength,
-                this.finalMoveSelectionPolicy);
+                this.finalMoveSelectionPolicy,
+                this.backpropagationFlags);
         return explanationGenerator.generateExplanation();
     }
 
