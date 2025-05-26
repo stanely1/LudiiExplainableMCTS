@@ -3,7 +3,7 @@
   "usePNS": true,
   "selectionPolicy": "GRAVE",
   "finalMoveSelectionPolicy": "RobustChild",
-  "playoutPolicy": "NST",
+  "playoutPolicy": "MAST",
   "graveBias": 1e-6,
   "graveRef": 100,
   "epsilon": 0.1,
