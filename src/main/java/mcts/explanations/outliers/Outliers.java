@@ -1,7 +1,6 @@
 package mcts.explanations.outliers;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 import mcts.Node;
 
@@ -28,6 +27,8 @@ public class Outliers {
     private final List<Node> veryGoodNodes = new ArrayList<>();
 
     // ---------------------------------------------------------------------------------------------------------
+    // mapping category to nodes
+    private final Map<String, List<Node>> outliersMap = new HashMap<>();
 
     public Outliers(Node root, Node selectedNode, Function<Node, Double> nodeRankFunction) {
         this(root, selectedNode, nodeRankFunction, OutliersThresholds.defaultThresholds());
@@ -80,6 +81,28 @@ public class Outliers {
                 veryBadNodes.add(c);
             }
         }
+        populateMap();
+    }
+
+    private void populateMap() {
+        outliersMap.put("equal", equalNodes);
+        outliersMap.put("slightlyWorse", slightlyWorseNodes);
+        outliersMap.put("muchWorse", muchWorseNodes);
+        outliersMap.put("slightlyBetter", slightlyBetterNodes);
+        outliersMap.put("muchBetter", muchBetterNodes);
+        outliersMap.put("neutral", neutralNodes);
+        outliersMap.put("bad", badNodes);
+        outliersMap.put("veryBad", veryBadNodes);
+        outliersMap.put("good", goodNodes);
+        outliersMap.put("veryGood", veryGoodNodes);
+    }
+
+    public Map<String, List<Node>> getOutliersMap() {
+        return Collections.unmodifiableMap(outliersMap);
+    }
+
+    public List<Node> get(String category) {
+        return outliersMap.getOrDefault(category, Collections.emptyList());
     }
 
     // ---------------------------------------------------------------------------------------------------------
