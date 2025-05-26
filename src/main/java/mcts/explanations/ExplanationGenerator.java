@@ -93,6 +93,17 @@ public class ExplanationGenerator {
             explanation += " " + getOutliersExplanation(getMastEval, "MAST score");
         }
 
+        // -------------------------------------------------------------------------------------------------------------------------------------------
+        // Forced Moves / Traps / Uncertainty
+        //
+        // We look deep into the search tree, but to keep things simple we can follow only the principal variation and
+        // note what the situation looks like:
+        //
+
+        explanation += "\n";
+        explanation += getForcedMovesExplanation();
+
+        // -------------------------------------------------------------------------------------------------------------------------------------------
         return explanation;
     }
 
@@ -322,5 +333,9 @@ public class ExplanationGenerator {
                 "There are %d %s moves (out of %d) by the %s criteria; the selected move is %s among them.",
                 count, label, totalCount, criteria, selectedInCategory ? "" : "not");
         return template;
+    }
+
+    private String getForcedMovesExplanation() {
+        return "TODO: explain forced moves";
     }
 }
