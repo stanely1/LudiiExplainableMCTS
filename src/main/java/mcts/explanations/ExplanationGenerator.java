@@ -298,13 +298,6 @@ public class ExplanationGenerator {
                 });
 
         // sibling comparison
-        // print number of nodes in each category
-        messages.add(formatRelativeCategory(outliers, "equal", criteria));
-        messages.add(formatRelativeCategory(outliers, "much better", criteria));
-        messages.add(formatRelativeCategory(outliers, "slightly better", criteria));
-        messages.add(formatRelativeCategory(outliers, "slightly worse", criteria));
-        messages.add(formatRelativeCategory(outliers, "much worse", criteria));
-
         // all moves were worse than the selected
         final var slightlyWorseNodes = outliers.get("slightly worse");
         final var muchWorseNodes = outliers.get("much worse");
@@ -322,6 +315,13 @@ public class ExplanationGenerator {
             messages.add(
                     String.format("All other moves were better than the selected one by the %s criteria.", criteria));
         }
+
+        // print number of nodes in each category
+        messages.add(formatRelativeCategory(outliers, "equal", criteria));
+        messages.add(formatRelativeCategory(outliers, "much better", criteria));
+        messages.add(formatRelativeCategory(outliers, "slightly better", criteria));
+        messages.add(formatRelativeCategory(outliers, "slightly worse", criteria));
+        messages.add(formatRelativeCategory(outliers, "much worse", criteria));
 
         // TODO: improve explanations below
         // - better natural language templates
