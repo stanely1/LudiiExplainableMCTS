@@ -3,6 +3,7 @@ package mcts.explanations;
 import java.util.*;
 import java.util.function.Function;
 import mcts.*;
+import mcts.explanations.forcedMoves.ForcedMoves;
 import mcts.explanations.outliers.Outliers;
 import mcts.policies.backpropagation.BackpropagationFlags;
 import mcts.policies.selection.ISelectionPolicy;
@@ -21,6 +22,7 @@ public class ExplanationGenerator {
     private final ISelectionPolicy finalMoveSelectionPolicy;
 
     private final int backpropagationFlags;
+    private final double averageBranchingFactor;
 
     private final Move selectedMove;
     private final int player;
@@ -32,7 +34,8 @@ public class ExplanationGenerator {
             final Map<NGramMoveKey, ActionStats> globalNGramStats,
             final int maxNGramLength,
             final ISelectionPolicy finalMoveSelectionPolicy,
-            final int backpropagationFlags) {
+            final int backpropagationFlags,
+            final double averageBranchingFactor) {
         this.root = root;
         this.selectedNode = selectedNode;
         this.globalActionStats = globalActionStats;
@@ -40,6 +43,7 @@ public class ExplanationGenerator {
         this.maxNGramLength = maxNGramLength;
         this.finalMoveSelectionPolicy = finalMoveSelectionPolicy;
         this.backpropagationFlags = backpropagationFlags;
+        this.averageBranchingFactor = averageBranchingFactor;
 
         this.selectedMove = this.selectedNode.getMoveFromParent();
         this.player = root.getPlayer();
@@ -336,6 +340,41 @@ public class ExplanationGenerator {
     }
 
     private String getForcedMovesExplanation() {
-        return "TODO: explain forced moves";
+        final List<String> messages = new ArrayList<>();
+
+        int depth = 3;
+        final ForcedMoves forcedMoves = new ForcedMoves(root, selectedNode, finalMoveSelectionPolicy, depth);
+        depth = Integer.min(depth, forcedMoves.getPrincipalVariation().size());
+
+        for (int i = 0; i < depth; i++) {
+            final var node = forcedMoves.getPrincipalVariation().get(i);
+            final var nodeStats = forcedMoves.getNodeStats().get(i);
+            final var depthString = "At depth " + i + " of PV";
+
+            // limited mobility (much less moves than average branching factor)
+            if (nodeStats.branchingFactor() < averageBranchingFactor / 10) {
+                messages.add(String.format(
+                        "%s there are %d available moves, which is significanly less than the estimated average branching factor of the game (%f).",
+                        depthString, nodeStats.branchingFactor(), averageBranchingFactor));
+                messages.add(String.format(
+                        "In this state %s forced to choose from limited number of options.",
+                        node.getPlayer() == player ? "we are" : "the opponent is"));
+            }
+
+            // significant amount of available moves are proven to be bad
+            if (nodeStats.provenBadNodes().size() > nodeStats.branchingFactor() / 2) {
+                messages.add(String.format(
+                        "%s the majority of available moves (%d out of %d) are proven to lead %s to loss.",
+                        depthString,
+                        nodeStats.provenBadNodes().size(),
+                        nodeStats.branchingFactor(),
+                        node.getPlayer() == player ? "us" : "the opponent"));
+                messages.add(String.format(
+                        "Thus in this state %s forced to choose from limited number of options.",
+                        node.getPlayer() == player ? "we are" : "the opponent is"));
+            }
+        }
+
+        return String.join(" ", messages);
     }
 }

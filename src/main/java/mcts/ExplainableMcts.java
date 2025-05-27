@@ -43,6 +43,9 @@ public class ExplainableMcts extends AI {
     private Node lastSelectedNode;
     private Move lastSelectedMove;
 
+    private int totalBranches = 0;
+    private int numOfNodes = 0;
+
     private String analysisReport;
 
     // Global tables for MAST/NST (i.e action/n-gram statistics)
@@ -145,6 +148,11 @@ public class ExplainableMcts extends AI {
             }
 
             final Node newNode = current.expand();
+
+            if (newNode != current) {
+                updateAverageBranchingFactor(newNode);
+            }
+
             final SimulationResult simRes = newNode.simulate(playoutPolicy);
             newNode.propagate(simRes, this.backpropagationFlags, this.player);
             propagateGlobalStats(simRes);
@@ -200,6 +208,8 @@ public class ExplainableMcts extends AI {
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
         this.lastSelectedMove = null;
+        this.totalBranches = 0;
+        this.numOfNodes = 0;
         this.analysisReport = null;
 
         this.globalActionStats.clear();
@@ -219,6 +229,8 @@ public class ExplainableMcts extends AI {
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
         this.lastSelectedMove = null;
+        this.totalBranches = 0;
+        this.numOfNodes = 0;
         this.analysisReport = null;
 
         this.globalActionStats.clear();
@@ -331,7 +343,8 @@ public class ExplainableMcts extends AI {
                 this.globalNGramStats,
                 this.maxNGramLength,
                 this.finalMoveSelectionPolicy,
-                this.backpropagationFlags);
+                this.backpropagationFlags,
+                this.getAverageBranchingFactor());
         return explanationGenerator.generateExplanation();
     }
 
@@ -363,6 +376,7 @@ public class ExplainableMcts extends AI {
 
         if (root == null) {
             root = new Node(null, null, context);
+            updateAverageBranchingFactor(root);
         } else {
             root.detachFromParent();
         }
@@ -448,5 +462,14 @@ public class ExplainableMcts extends AI {
         }
 
         // System.err.println("MCTS: map size: " + globalNGramStats.size());
+    }
+
+    private void updateAverageBranchingFactor(final Node newNode) {
+        totalBranches += newNode.getUnexpandedMoves().size();
+        numOfNodes++;
+    }
+
+    private double getAverageBranchingFactor() {
+        return (double) totalBranches / numOfNodes;
     }
 }

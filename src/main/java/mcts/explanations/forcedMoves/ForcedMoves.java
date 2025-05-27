@@ -9,11 +9,12 @@ public class ForcedMoves {
     private final List<NodeStats> nodeStats = new ArrayList<>();
     private final List<Node> principalVariation = new ArrayList<>();
 
-    public ForcedMoves(final Node root, final ISelectionPolicy selectionPolicy, final int maxDepth) {
-        // PV
+    public ForcedMoves(
+            final Node root, final Node selectedNode, final ISelectionPolicy selectionPolicy, final int maxDepth) {
+        // build Principal Variation
         var node = root;
         int depth = 1;
-        while (!node.isTerminal() && depth <= maxDepth) {
+        while (node != null && !node.isTerminal() && depth <= maxDepth) {
             principalVariation.add(node);
 
             final int branchingFactor =
@@ -25,7 +26,7 @@ public class ForcedMoves {
 
             nodeStats.add(new NodeStats(branchingFactor, provenBadNodes));
 
-            node = node.select(selectionPolicy);
+            node = node == root ? selectedNode : node.select(selectionPolicy);
             depth++;
         }
     }
