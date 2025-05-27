@@ -86,15 +86,15 @@ public class Outliers {
 
     private void populateMap() {
         outliersMap.put("equal", equalNodes);
-        outliersMap.put("slightlyWorse", slightlyWorseNodes);
-        outliersMap.put("muchWorse", muchWorseNodes);
-        outliersMap.put("slightlyBetter", slightlyBetterNodes);
-        outliersMap.put("muchBetter", muchBetterNodes);
+        outliersMap.put("slightly worse", slightlyWorseNodes);
+        outliersMap.put("much worse", muchWorseNodes);
+        outliersMap.put("slightly better", slightlyBetterNodes);
+        outliersMap.put("much better", muchBetterNodes);
         outliersMap.put("neutral", neutralNodes);
         outliersMap.put("bad", badNodes);
-        outliersMap.put("veryBad", veryBadNodes);
+        outliersMap.put("very bad", veryBadNodes);
         outliersMap.put("good", goodNodes);
-        outliersMap.put("veryGood", veryGoodNodes);
+        outliersMap.put("very good", veryGoodNodes);
     }
 
     public Map<String, List<Node>> getOutliersMap() {

@@ -284,8 +284,52 @@ public class ExplanationGenerator {
         var outliers = new Outliers(root, selectedNode, evalNode);
         int totalChildren = root.getChildren().size();
 
+        if (totalChildren == 1) {
+            messages.add("There was only one move available.");
+        }
+
+        // Print the category where the selected move belongs
+        outliers.getOutliersMap().entrySet().stream()
+                .filter(e -> !e.getKey().equals("equal") && e.getValue().contains(selectedNode))
+                .findFirst()
+                .ifPresent(e -> {
+                    messages.add(String.format(
+                            "The selected node is considered %s by the %s criteria.", e.getKey(), criteria));
+                });
+
+        // sibling comparison
+        // print number of nodes in each category
+        messages.add(formatRelativeCategory(outliers, "equal", criteria));
+        messages.add(formatRelativeCategory(outliers, "much better", criteria));
+        messages.add(formatRelativeCategory(outliers, "slightly better", criteria));
+        messages.add(formatRelativeCategory(outliers, "slightly worse", criteria));
+        messages.add(formatRelativeCategory(outliers, "much worse", criteria));
+
+        // all moves were worse than the selected
+        final var slightlyWorseNodes = outliers.get("slightly worse");
+        final var muchWorseNodes = outliers.get("much worse");
+        final var totalWorse = slightlyWorseNodes.size() + muchWorseNodes.size();
+        if (totalWorse > 0 && totalWorse == totalChildren - 1) {
+            messages.add(
+                    String.format("All other moves were worse than the selected one by the %s criteria.", criteria));
+        }
+
+        // all moves were better than the selected
+        final var slightlyBetterNodes = outliers.get("slightly better");
+        final var muchBetterNodes = outliers.get("much better");
+        final var totalBetter = slightlyBetterNodes.size() + muchBetterNodes.size();
+        if (totalBetter > 0 && totalBetter == totalChildren - 1) {
+            messages.add(
+                    String.format("All other moves were better than the selected one by the %s criteria.", criteria));
+        }
+
+        // TODO: improve explanations below
+        // - better natural language templates
+        // - if selected node not among 'good' nodes, add explanation why it happened
+        // - maybe print those 'very good' moves
+
         // 1. Dominating solution, One solution that outlies the others
-        var veryGoodNodes = outliers.get("veryGood");
+        var veryGoodNodes = outliers.get("very good");
         if (veryGoodNodes.size() == 1) {
             messages.add(formatCategory(
                     "very good", veryGoodNodes.size(), totalChildren, veryGoodNodes.contains(selectedNode), criteria));
@@ -302,7 +346,7 @@ public class ExplanationGenerator {
             String category = entry.getKey();
             List<Node> nodes = entry.getValue();
 
-            if (nodes.size() == totalChildren) {
+            if (!category.equals("equal") && nodes.size() == totalChildren) {
                 messages.add(String.format("All nodes are in %s category by the %s criteria.", category, criteria));
                 // break;
             }
@@ -339,6 +383,19 @@ public class ExplanationGenerator {
         return template;
     }
 
+    private String formatRelativeCategory(final Outliers outliers, final String category, final String criteria) {
+        final var nodes = outliers.get(category);
+        if (category.equals("equal") && nodes.size() == 1) {
+            return "";
+        }
+        if (!nodes.isEmpty()) {
+            return String.format(
+                    "There are %d moves %s %s the selected move by the %s criteria.",
+                    nodes.size(), category, category.equals("equal") ? "to" : "than", criteria);
+        }
+        return "";
+    }
+
     private String getForcedMovesExplanation() {
         final List<String> messages = new ArrayList<>();
 
@@ -346,6 +403,7 @@ public class ExplanationGenerator {
         final ForcedMoves forcedMoves = new ForcedMoves(root, selectedNode, finalMoveSelectionPolicy, depth);
         depth = Integer.min(depth, forcedMoves.getPrincipalVariation().size());
 
+        // TODO: print PV similar as in scoreBoundExplanation
         for (int i = 0; i < depth; i++) {
             final var node = forcedMoves.getPrincipalVariation().get(i);
             final var nodeStats = forcedMoves.getNodeStats().get(i);
