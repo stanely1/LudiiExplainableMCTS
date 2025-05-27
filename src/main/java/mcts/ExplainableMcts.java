@@ -18,7 +18,6 @@ import mcts.policies.selection.ScoreBoundedSelectionPolicy;
 import other.AI;
 import other.context.Context;
 import other.move.Move;
-import pns.ProofNumberSearch;
 import search.mcts.MCTS.MoveKey;
 import search.mcts.MCTS.NGramMoveKey;
 
@@ -33,9 +32,6 @@ public class ExplainableMcts extends AI {
     private final IPlayoutPolicy playoutPolicy;
 
     private final int backpropagationFlags;
-
-    // TODO: remove pns running in separate thread ?
-    private final ProofNumberSearch pns;
 
     private int lastActionHistorySize = 0;
     private int lastNumIterations = 0;
@@ -96,8 +92,6 @@ public class ExplainableMcts extends AI {
                 | this.finalMoveSelectionPolicy.getBackpropagationFlags()
                 | this.playoutPolicy.getBackpropagationFlags();
 
-        this.pns = usePNS ? new ProofNumberSearch() : null;
-
         System.out.println(String.format(
                 "[%s] selection policy: %s; final move selection policy: %s; playout policy: %s; backpropagation flags: {%s}",
                 this.friendlyName,
@@ -114,14 +108,6 @@ public class ExplainableMcts extends AI {
             final double maxSeconds,
             final int maxIterations,
             final int maxDepth) {
-
-        // run PNS in separate thread
-        final Thread pnsThread = new Thread(() -> {
-            this.pns.selectAction(game, context, maxSeconds, maxIterations, maxDepth);
-        });
-        if (this.pns != null) {
-            pnsThread.start();
-        }
 
         // We'll respect any limitations on max seconds and max iterations (don't care
         // about max depth)
@@ -161,26 +147,6 @@ public class ExplainableMcts extends AI {
         }
 
         this.lastSelectedNode = root.select(this.finalMoveSelectionPolicy);
-
-        // join PNS thread
-        try {
-            pnsThread.join();
-        } catch (InterruptedException e) {
-            System.err.println("WARNING: main thread interrupted.");
-        }
-
-        // change decision if PNS proved a win
-        if (this.pns != null) {
-            final var pnsNode = this.pns.getSelectedNode();
-            if (pnsNode != null && pnsNode.proofNumber() == 0) {
-                final var mctsNode = root.getChildByMove(pns.getSelectedMove());
-                if (mctsNode != null) {
-                    System.err.println("Changed decision to move proved by PNS");
-                    this.lastSelectedNode = mctsNode;
-                }
-            }
-        }
-
         this.lastNumIterations = numIterations;
         this.lastMoveValue = lastSelectedNode.getScoreSum(this.player) / lastSelectedNode.getVisitCount();
         this.lastSelectedMove = lastSelectedNode.getMoveFromParent();
@@ -189,12 +155,6 @@ public class ExplainableMcts extends AI {
         final String explanation = generateExplanation();
 
         this.analysisReport = debugString + "\n" + explanation + "\n";
-
-        // TODO: use PNS result in explanation
-        if (this.pns != null) {
-            this.analysisReport += this.pns.generateAnalysisReport();
-        }
-
         return this.lastSelectedMove;
     }
 
@@ -214,10 +174,6 @@ public class ExplainableMcts extends AI {
 
         this.globalActionStats.clear();
         this.globalNGramStats.clear();
-
-        if (this.pns != null) {
-            this.pns.initAI(game, playerID);
-        }
     }
 
     @Override
@@ -235,10 +191,6 @@ public class ExplainableMcts extends AI {
 
         this.globalActionStats.clear();
         this.globalNGramStats.clear();
-
-        if (this.pns != null) {
-            this.pns.closeAI();
-        }
     }
 
     @Override

@@ -105,7 +105,18 @@ public class ExplanationGenerator {
         //
 
         explanation += "\n";
-        explanation += getForcedMovesExplanation();
+        explanation += getForcedMovesExplanation(selectedNode, "");
+
+        // -------------------------------------------------------------------------------------------------------------------------------------------
+        // 
+        
+        for (Node wantedNode : root.getChildren()) {
+            if(wantedNode == selectedNode) continue;
+            var x = getForcedMovesExplanation(wantedNode, "Bombastic\n");
+            if(x.length() > 20)
+                explanation += x;
+        }
+
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
         return explanation;
@@ -396,11 +407,11 @@ public class ExplanationGenerator {
         return "";
     }
 
-    private String getForcedMovesExplanation() {
+    private String getForcedMovesExplanation(Node wantedNode, String specialMessage) {
         final List<String> messages = new ArrayList<>();
 
         int depth = 3;
-        final ForcedMoves forcedMoves = new ForcedMoves(root, selectedNode, finalMoveSelectionPolicy, depth);
+        final ForcedMoves forcedMoves = new ForcedMoves(root, wantedNode, finalMoveSelectionPolicy, depth);
         depth = Integer.min(depth, forcedMoves.getPrincipalVariation().size());
 
         // TODO: print PV similar as in scoreBoundExplanation
@@ -433,6 +444,6 @@ public class ExplanationGenerator {
             }
         }
 
-        return String.join(" ", messages);
+        return specialMessage + String.join(" ", messages);
     }
 }
