@@ -108,15 +108,13 @@ public class ExplanationGenerator {
         explanation += getForcedMovesExplanation(selectedNode, "");
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
-        // 
-        
-        for (Node wantedNode : root.getChildren()) {
-            if(wantedNode == selectedNode) continue;
-            var x = getForcedMovesExplanation(wantedNode, "Bombastic\n");
-            if(x.length() > 20)
-                explanation += x;
-        }
+        //
 
+        for (Node wantedNode : root.getChildren()) {
+            if (wantedNode == selectedNode) continue;
+            var x = getForcedMovesExplanation(wantedNode, "Bombastic\n");
+            if (x.length() > 20) explanation += x;
+        }
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
         return explanation;
@@ -327,6 +325,13 @@ public class ExplanationGenerator {
                     String.format("All other moves were better than the selected one by the %s criteria.", criteria));
         }
 
+        // all moves equal
+        final var equal = outliers.get("equal");
+        if (equal.size() == totalChildren) {
+            messages.add(String.format("All moves are equal by the %s criteria.", criteria));
+        }
+
+        // ?? ?? ??
         // print number of nodes in each category
         messages.add(formatRelativeCategory(outliers, "equal", criteria));
         messages.add(formatRelativeCategory(outliers, "much better", criteria));
@@ -341,15 +346,22 @@ public class ExplanationGenerator {
 
         // 1. Dominating solution, One solution that outlies the others
         var veryGoodNodes = outliers.get("very good");
+        var goodNodes = outliers.get("good");
+
         if (veryGoodNodes.size() == 1) {
             messages.add(formatCategory(
                     "very good", veryGoodNodes.size(), totalChildren, veryGoodNodes.contains(selectedNode), criteria));
+        } else if (goodNodes.size() == 1 && veryGoodNodes.isEmpty()) {
+            messages.add(formatCategory(
+                    "good", goodNodes.size(), totalChildren, goodNodes.contains(selectedNode), criteria));
         }
-
         // 2. a few - we have a few of these, but they are a minority among all available
-        else if (veryGoodNodes.size() < root.getChildren().size() / 10 && !veryGoodNodes.isEmpty()) {
+        else if (veryGoodNodes.size() < totalChildren / 10 && !veryGoodNodes.isEmpty()) {
             messages.add(formatCategory(
                     "very good", veryGoodNodes.size(), totalChildren, veryGoodNodes.contains(selectedNode), criteria));
+        } else if (goodNodes.size() < totalChildren / 10 && !goodNodes.isEmpty() && veryGoodNodes.isEmpty()) {
+            messages.add(formatCategory(
+                    "good", goodNodes.size(), totalChildren, goodNodes.contains(selectedNode), criteria));
         }
 
         // 3. None - there are no outliers, everything is similar; three variants: everything is good,
@@ -364,7 +376,6 @@ public class ExplanationGenerator {
         }
 
         // 4. All good except or a few - Overall it's OK, but some are significantly worse.
-        var goodNodes = outliers.get("good");
         int totalGoodAndVeryGood = goodNodes.size() + veryGoodNodes.size();
         if (totalGoodAndVeryGood < totalChildren && totalGoodAndVeryGood > totalChildren * 8 / 10) {
             messages.add(formatCategory(
