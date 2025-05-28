@@ -109,6 +109,7 @@ public class ExplanationGenerator {
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
         //
+        // TODO: Traps - forced moves with different selectedNode
 
         for (Node wantedNode : root.getChildren()) {
             if (wantedNode == selectedNode) continue;
@@ -293,6 +294,7 @@ public class ExplanationGenerator {
         var outliers = new Outliers(root, selectedNode, evalNode);
         int totalChildren = root.getChildren().size();
 
+        // TODO: print this outside this function (it is printed more than once)
         if (totalChildren == 1) {
             messages.add("There was only one move available.");
         }
@@ -306,29 +308,85 @@ public class ExplanationGenerator {
                             "The selected node is considered %s by the %s criteria.", e.getKey(), criteria));
                 });
 
+        // if there is only 1 move, no further explanations needed
+        if (totalChildren == 1) {
+            return String.join(" ", messages);
+        }
+
+        // TODO: in code below, generalize similar cases and extract them into functions
+
         // sibling comparison
-        // all moves were worse than the selected
         final var slightlyWorseNodes = outliers.get("slightly worse");
         final var muchWorseNodes = outliers.get("much worse");
         final var totalWorse = slightlyWorseNodes.size() + muchWorseNodes.size();
+
+        final var slightlyBetterNodes = outliers.get("slightly better");
+        final var muchBetterNodes = outliers.get("much better");
+        final var totalBetter = slightlyBetterNodes.size() + muchBetterNodes.size();
+
+        final var equalNodes = outliers.get("equal");
+
+        // all moves were worse than the selected
         if (totalWorse > 0 && totalWorse == totalChildren - 1) {
             messages.add(
                     String.format("All other moves were worse than the selected one by the %s criteria.", criteria));
         }
+        // majority (but not all) worse than selected
+        else if (totalWorse > (totalChildren - 1) * 8 / 10) {
+            messages.add(String.format(
+                    "The majority of other moves (%d out of %d) were worse than the selected one by the %s criteria.",
+                    totalWorse, totalChildren - 1, criteria));
+            if (equalNodes.size() > 1) {
+                messages.add(String.format(
+                        "%d out of remaining moves were considered equal to the selected.", equalNodes.size() - 1));
+            }
+            if (totalBetter > 0) {
+                messages.add("The remaining nodes were better.");
+            }
+        }
 
         // all moves were better than the selected
-        final var slightlyBetterNodes = outliers.get("slightly better");
-        final var muchBetterNodes = outliers.get("much better");
-        final var totalBetter = slightlyBetterNodes.size() + muchBetterNodes.size();
         if (totalBetter > 0 && totalBetter == totalChildren - 1) {
             messages.add(
                     String.format("All other moves were better than the selected one by the %s criteria.", criteria));
         }
+        // majority (but not all) better than selected
+        else if (totalBetter > (totalChildren - 1) * 8 / 10) {
+            messages.add(String.format(
+                    "The majority of other moves (%d out of %d) were better than the selected one by the %s criteria.",
+                    totalBetter, totalChildren - 1, criteria));
+            if (equalNodes.size() > 1) {
+                messages.add(String.format(
+                        "%d out of remaining moves were considered equal to the selected.", equalNodes.size() - 1));
+            }
+            if (totalWorse > 0) {
+                messages.add("The remaining nodes were worse.");
+            }
+        }
 
         // all moves equal
-        final var equal = outliers.get("equal");
-        if (equal.size() == totalChildren) {
+        if (equalNodes.size() == totalChildren) {
             messages.add(String.format("All moves are equal by the %s criteria.", criteria));
+        }
+        // majority (but not all) equal
+        else if (equalNodes.size() - 1 > (totalChildren - 1) * 8 / 10) {
+            messages.add(String.format(
+                    "The majority of other moves (%d out of %d) were equal to the selected one by the %s criteria.",
+                    equalNodes.size() - 1, totalChildren - 1, criteria));
+            if (totalBetter > 0) {
+                messages.add(String.format(
+                        "%d out of remaining moves were considered better than the selected.", totalBetter));
+            }
+            if (totalWorse > 0) {
+                messages.add("The remaining nodes were worse.");
+            }
+        }
+        // selected node was one of a few equal nodes
+        else if (equalNodes.size() > 1 && equalNodes.size() < totalChildren / 10) {
+            messages.add(String.format(
+                    "The selected move was one of %d moves that are equal by the %s criteria.",
+                    equalNodes.size(), criteria));
+            messages.add(String.format("They were a minority among all %d available moves.", totalChildren));
         }
 
         // ?? ?? ??
