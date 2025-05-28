@@ -105,7 +105,7 @@ public class ExplanationGenerator {
         //
 
         explanation += "\n";
-        explanation += getForcedMovesExplanation(selectedNode, "");
+        explanation += getForcedMovesExplanation(selectedNode, "the selected move", 0);
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
         //
@@ -113,8 +113,7 @@ public class ExplanationGenerator {
 
         for (Node wantedNode : root.getChildren()) {
             if (wantedNode == selectedNode) continue;
-            var x = getForcedMovesExplanation(wantedNode, "Bombastic\n");
-            if (x.length() > 20) explanation += x;
+            explanation += getForcedMovesExplanation(wantedNode, moveToString(wantedNode.getMoveFromParent()), 1);
         }
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
@@ -476,27 +475,45 @@ public class ExplanationGenerator {
         return "";
     }
 
-    private String getForcedMovesExplanation(Node wantedNode, String specialMessage) {
+    private String getForcedMovesExplanation(Node wantedNode, String wantedNodeString, int startDepth) {
         final List<String> messages = new ArrayList<>();
 
         int depth = 3;
         final ForcedMoves forcedMoves = new ForcedMoves(root, wantedNode, finalMoveSelectionPolicy, depth);
         depth = Integer.min(depth, forcedMoves.getPrincipalVariation().size());
 
+        final List<String> movesFromPV = new ArrayList<>();
+        movesFromPV.add(String.format("After we play %s, ", wantedNodeString));
+        for (int i = 2; i < depth; i++) {
+            final var node = forcedMoves.getPrincipalVariation().get(i);
+            if (node.getParent().getPlayer() == this.player) {
+                movesFromPV.add(String.format("we will play %s, then ", moveToString(node.getMoveFromParent())));
+            } else {
+                movesFromPV.add(String.format(
+                        "the opponent will most likely play %s, then ", moveToString(node.getMoveFromParent())));
+            }
+        }
+
+        String depthString = "";
+
         // TODO: print PV similar as in scoreBoundExplanation
-        for (int i = 0; i < depth; i++) {
+        for (int i = startDepth; i < depth; i++) {
             final var node = forcedMoves.getPrincipalVariation().get(i);
             final var nodeStats = forcedMoves.getNodeStats().get(i);
-            final var depthString = "At depth " + i + " of PV";
+            if (i > 0) depthString += movesFromPV.get(i - 1);
 
             // limited mobility (much less moves than average branching factor)
-            if (nodeStats.branchingFactor() < averageBranchingFactor / 10) {
+            if (nodeStats.branchingFactor() < averageBranchingFactor / 8) {
                 messages.add(String.format(
-                        "%s there are %d available moves, which is significanly less than the estimated average branching factor of the game (%f).",
-                        depthString, nodeStats.branchingFactor(), averageBranchingFactor));
+                        "%s %s %d available moves, which is significanly less than the estimated average branching factor of the game (%f).",
+                        depthString,
+                        node.getPlayer() == player ? "we have" : "the opponent has",
+                        nodeStats.branchingFactor(),
+                        averageBranchingFactor));
                 messages.add(String.format(
                         "In this state %s forced to choose from limited number of options.",
                         node.getPlayer() == player ? "we are" : "the opponent is"));
+                depthString = "";
             }
 
             // significant amount of available moves are proven to be bad
@@ -510,9 +527,10 @@ public class ExplanationGenerator {
                 messages.add(String.format(
                         "Thus in this state %s forced to choose from limited number of options.",
                         node.getPlayer() == player ? "we are" : "the opponent is"));
+                depthString = "";
             }
         }
 
-        return specialMessage + String.join(" ", messages);
+        return String.join(" ", messages);
     }
 }
