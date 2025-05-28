@@ -117,7 +117,7 @@ public class ExplanationGenerator {
         }
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
-        return explanation;
+        return explanation.replaceAll("\\s{2,}", " ");
     }
 
     private String moveToString(final Move move) {
@@ -133,7 +133,7 @@ public class ExplanationGenerator {
 
         // comparison with other moves
         if (root.getChildren().size() == 1) {
-            explanation += "Since there was only one move available, it was the one chosen.";
+            explanation += "Since there was only one move available, it was the only one chosen.";
         } else {
             double selectedMoveScore = this.finalMoveSelectionPolicy.getNodeValue(selectedNode);
 
@@ -293,11 +293,6 @@ public class ExplanationGenerator {
         var outliers = new Outliers(root, selectedNode, evalNode);
         int totalChildren = root.getChildren().size();
 
-        // TODO: print this outside this function (it is printed more than once)
-        if (totalChildren == 1) {
-            messages.add("There was only one move available.");
-        }
-
         // Print the category where the selected move belongs
         outliers.getOutliersMap().entrySet().stream()
                 .filter(e -> !e.getKey().equals("equal") && e.getValue().contains(selectedNode))
@@ -390,11 +385,15 @@ public class ExplanationGenerator {
 
         // ?? ?? ??
         // print number of nodes in each category
-        messages.add(formatRelativeCategory(outliers, "equal", criteria));
-        messages.add(formatRelativeCategory(outliers, "much better", criteria));
-        messages.add(formatRelativeCategory(outliers, "slightly better", criteria));
-        messages.add(formatRelativeCategory(outliers, "slightly worse", criteria));
-        messages.add(formatRelativeCategory(outliers, "much worse", criteria));
+
+        messages.add(String.format("By the %s criteria there are ", criteria));
+        messages.add(formatRelativeCategory(outliers, "equal"));
+        messages.add(formatRelativeCategory(outliers, "much better"));
+        messages.add(formatRelativeCategory(outliers, "slightly better"));
+        messages.add(formatRelativeCategory(outliers, "slightly worse"));
+        messages.add(formatRelativeCategory(outliers, "much worse"));
+
+        messages.set(messages.size() - 1, messages.get(messages.size() - 1).replaceAll(",$", "."));
 
         // TODO: improve explanations below
         // - better natural language templates
@@ -462,15 +461,17 @@ public class ExplanationGenerator {
         return template;
     }
 
-    private String formatRelativeCategory(final Outliers outliers, final String category, final String criteria) {
+    private String formatRelativeCategory(final Outliers outliers, final String category) {
         final var nodes = outliers.get(category);
         if (category.equals("equal") && nodes.size() == 1) {
             return "";
         }
         if (!nodes.isEmpty()) {
-            return String.format(
-                    "There are %d moves %s %s the selected move by the %s criteria.",
-                    nodes.size(), category, category.equals("equal") ? "to" : "than", criteria);
+            if (nodes.size() > 1) {
+                return String.format("%d moves %s,", nodes.size(), category);
+            } else {
+                return "";
+            }
         }
         return "";
     }
