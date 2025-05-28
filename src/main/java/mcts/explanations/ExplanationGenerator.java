@@ -81,12 +81,14 @@ public class ExplanationGenerator {
         explanation += "\n";
 
         Function<Node, Double> getNodeAverageEval = _node -> _node.getScoreSum(player) / _node.getVisitCount();
-        explanation += " " + getOutliersExplanation(getNodeAverageEval, "average score");
+        explanation += " " + getOutliersExplanation(getNodeAverageEval, "average score", "in current situation");
 
         if ((backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
             Function<Node, Double> getNodeGraveEval = _node -> root.getScoreSumAMAF(_node.getMoveFromParent(), player)
                     / root.getVisitCountAMAF(_node.getMoveFromParent());
-            explanation += " " + getOutliersExplanation(getNodeGraveEval, "AMAF score");
+            explanation += " "
+                    + getOutliersExplanation(
+                            getNodeGraveEval, "AMAF score", "in game phases that follow the current state");
         }
 
         if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
@@ -94,7 +96,8 @@ public class ExplanationGenerator {
                 final var aStats = globalActionStats.get(new MoveKey(_node.getMoveFromParent(), 0));
                 return aStats.scoreSums[player] / aStats.visitCount;
             };
-            explanation += " " + getOutliersExplanation(getMastEval, "MAST score");
+            explanation +=
+                    " " + getOutliersExplanation(getMastEval, "MAST score", "in general, regardless of the game phase");
         }
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
@@ -108,12 +111,11 @@ public class ExplanationGenerator {
         explanation += getForcedMovesExplanation(selectedNode, "the selected move", 0);
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
-        //
-        // TODO: Traps - forced moves with different selectedNode
+        // Traps - forced moves with different selectedNode
 
         for (Node wantedNode : root.getChildren()) {
             if (wantedNode == selectedNode) continue;
-            explanation += getForcedMovesExplanation(wantedNode, moveToString(wantedNode.getMoveFromParent()), 1);
+            explanation += " " + getForcedMovesExplanation(wantedNode, moveToString(wantedNode.getMoveFromParent()), 1);
         }
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
@@ -288,7 +290,8 @@ public class ExplanationGenerator {
         return explanation;
     }
 
-    private String getOutliersExplanation(Function<Node, Double> evalNode, String criteria) {
+    private String getOutliersExplanation(
+            Function<Node, Double> evalNode, String criteria, String criteriaExplanation) {
         List<String> messages = new ArrayList<>();
         var outliers = new Outliers(root, selectedNode, evalNode);
         int totalChildren = root.getChildren().size();
@@ -298,8 +301,10 @@ public class ExplanationGenerator {
                 .filter(e -> !e.getKey().equals("equal") && e.getValue().contains(selectedNode))
                 .findFirst()
                 .ifPresent(e -> {
+                    final var category = e.getKey();
                     messages.add(String.format(
-                            "The selected node is considered %s by the %s criteria.", e.getKey(), criteria));
+                            "The selected move has %s %s, which means it is considered %s %s.",
+                            category, criteria, category, criteriaExplanation));
                 });
 
         // if there is only 1 move, no further explanations needed
@@ -320,63 +325,37 @@ public class ExplanationGenerator {
 
         final var equalNodes = outliers.get("equal");
 
-        // all moves were worse than the selected
-        if (totalWorse > 0 && totalWorse == totalChildren - 1) {
-            messages.add(
-                    String.format("All other moves were worse than the selected one by the %s criteria.", criteria));
-        }
-        // majority (but not all) worse than selected
-        else if (totalWorse > (totalChildren - 1) * 8 / 10) {
-            messages.add(String.format(
-                    "The majority of other moves (%d out of %d) were worse than the selected one by the %s criteria.",
-                    totalWorse, totalChildren - 1, criteria));
-            if (equalNodes.size() > 1) {
-                messages.add(String.format(
-                        "%d out of remaining moves were considered equal to the selected.", equalNodes.size() - 1));
-            }
-            if (totalBetter > 0) {
-                messages.add("The remaining nodes were better.");
-            }
-        }
+        // All or majority of other moves are in the same (relative) category
+        messages.add(allOrMajorityInRelativeCategory(
+                "worse",
+                totalWorse,
+                totalChildren - 1,
+                "equal",
+                equalNodes.size() - 1,
+                "better",
+                totalBetter,
+                criteria));
+        messages.add(allOrMajorityInRelativeCategory(
+                "better",
+                totalBetter,
+                totalChildren - 1,
+                "equal",
+                equalNodes.size() - 1,
+                "worse",
+                totalWorse,
+                criteria));
+        messages.add(allOrMajorityInRelativeCategory(
+                "equal",
+                equalNodes.size() - 1,
+                totalChildren - 1,
+                "better",
+                totalBetter,
+                "worse",
+                totalWorse,
+                criteria));
 
-        // all moves were better than the selected
-        if (totalBetter > 0 && totalBetter == totalChildren - 1) {
-            messages.add(
-                    String.format("All other moves were better than the selected one by the %s criteria.", criteria));
-        }
-        // majority (but not all) better than selected
-        else if (totalBetter > (totalChildren - 1) * 8 / 10) {
-            messages.add(String.format(
-                    "The majority of other moves (%d out of %d) were better than the selected one by the %s criteria.",
-                    totalBetter, totalChildren - 1, criteria));
-            if (equalNodes.size() > 1) {
-                messages.add(String.format(
-                        "%d out of remaining moves were considered equal to the selected.", equalNodes.size() - 1));
-            }
-            if (totalWorse > 0) {
-                messages.add("The remaining nodes were worse.");
-            }
-        }
-
-        // all moves equal
-        if (equalNodes.size() == totalChildren) {
-            messages.add(String.format("All moves are equal by the %s criteria.", criteria));
-        }
-        // majority (but not all) equal
-        else if (equalNodes.size() - 1 > (totalChildren - 1) * 8 / 10) {
-            messages.add(String.format(
-                    "The majority of other moves (%d out of %d) were equal to the selected one by the %s criteria.",
-                    equalNodes.size() - 1, totalChildren - 1, criteria));
-            if (totalBetter > 0) {
-                messages.add(String.format(
-                        "%d out of remaining moves were considered better than the selected.", totalBetter));
-            }
-            if (totalWorse > 0) {
-                messages.add("The remaining nodes were worse.");
-            }
-        }
         // selected node was one of a few equal nodes
-        else if (equalNodes.size() > 1 && equalNodes.size() < totalChildren / 10) {
+        if (equalNodes.size() > 1 && equalNodes.size() < totalChildren / 10) {
             messages.add(String.format(
                     "The selected move was one of %d moves that are equal by the %s criteria.",
                     equalNodes.size(), criteria));
@@ -385,15 +364,20 @@ public class ExplanationGenerator {
 
         // ?? ?? ??
         // print number of nodes in each category
+        messages.add(String.format("By the %s criteria we have ", criteria));
 
-        messages.add(String.format("By the %s criteria there are ", criteria));
-        messages.add(formatRelativeCategory(outliers, "equal"));
-        messages.add(formatRelativeCategory(outliers, "much better"));
-        messages.add(formatRelativeCategory(outliers, "slightly better"));
-        messages.add(formatRelativeCategory(outliers, "slightly worse"));
-        messages.add(formatRelativeCategory(outliers, "much worse"));
+        List<String> relativeCategoryMessages = new ArrayList<>();
+        relativeCategoryMessages.add(formatRelativeCategory(outliers, "equal"));
+        relativeCategoryMessages.add(formatRelativeCategory(outliers, "much better"));
+        relativeCategoryMessages.add(formatRelativeCategory(outliers, "slightly better"));
+        relativeCategoryMessages.add(formatRelativeCategory(outliers, "slightly worse"));
+        relativeCategoryMessages.add(formatRelativeCategory(outliers, "much worse"));
 
-        messages.set(messages.size() - 1, messages.get(messages.size() - 1).replaceAll(",$", "."));
+        messages.add(String.join(
+                        ", ",
+                        relativeCategoryMessages.stream()
+                                .filter(s -> !s.isEmpty())
+                                .toList()) + ".");
 
         // TODO: improve explanations below
         // - better natural language templates
@@ -403,6 +387,8 @@ public class ExplanationGenerator {
         // 1. Dominating solution, One solution that outlies the others
         var veryGoodNodes = outliers.get("very good");
         var goodNodes = outliers.get("good");
+        var badNodes = outliers.get("bad");
+        var veryBadNodes = outliers.get("very bad");
 
         if (veryGoodNodes.size() == 1) {
             messages.add(formatCategory(
@@ -426,7 +412,7 @@ public class ExplanationGenerator {
             List<Node> nodes = entry.getValue();
 
             if (!category.equals("equal") && nodes.size() == totalChildren) {
-                messages.add(String.format("All nodes are in %s category by the %s criteria.", category, criteria));
+                messages.add(String.format("All moves are considered %s by the %s criteria.", category, criteria));
                 // break;
             }
         }
@@ -443,10 +429,21 @@ public class ExplanationGenerator {
 
             var neutralNodes = outliers.get("neutral");
             if (!neutralNodes.isEmpty()) {
-                messages.add(String.format("%d out of remaining moves were considered neutral.", neutralNodes.size()));
+                messages.add(String.format(
+                        "%d out of remaining moves %s considered neutral.",
+                        neutralNodes.size(), neutralNodes.size() == 1 ? "was" : "were"));
             }
-            if (!outliers.get("bad").isEmpty() || !outliers.get("veryBad").isEmpty()) {
-                messages.add("The remaining nodes were bad or very bad.");
+            if (!badNodes.isEmpty() || !veryBadNodes.isEmpty()) {
+                int totalBadAndVeryBad = badNodes.size() + veryBadNodes.size();
+                String msg = String.format("The remaining %s ", totalBadAndVeryBad == 1 ? "move was" : "moves were");
+                if (badNodes.isEmpty()) {
+                    msg += "very bad.";
+                } else if (veryBadNodes.isEmpty()) {
+                    msg += "bad.";
+                } else {
+                    msg += "bad or very bad.";
+                }
+                messages.add(msg);
             }
         }
 
@@ -455,10 +452,58 @@ public class ExplanationGenerator {
 
     private String formatCategory(
             String label, int count, int totalCount, boolean selectedInCategory, String criteria) {
-        String template = String.format(
-                "There are %d %s moves (out of %d) by the %s criteria; the selected move is %s among them.",
-                count, label, totalCount, criteria, selectedInCategory ? "" : "not");
-        return template;
+        final String whyNotSelected = selectedInCategory
+                ? "."
+                : String.format(
+                        ", because the selected move had higher visit count, which makes its result more reliable.");
+        if (count == 1) {
+            return String.format(
+                    "There was one %s move (out of %d) by the %s criteria. It is %s the selected one%s",
+                    label, totalCount, criteria, selectedInCategory ? "" : "not", whyNotSelected);
+        } else {
+            return String.format(
+                    "There were %d %s moves (out of %d) by the %s criteria. The selected move is %s among them%s",
+                    count, label, totalCount, criteria, selectedInCategory ? "" : "not", whyNotSelected);
+        }
+    }
+
+    private String allOrMajorityInRelativeCategory(
+            final String category,
+            final int count,
+            final int totalCount,
+            final String alternativeCategory1,
+            final int alternativeCount1,
+            final String alternativeCategory2,
+            final int alternativeCount2,
+            final String criteria) {
+        final List<String> messages = new ArrayList<>();
+
+        // all moves in category
+        if (count == totalCount) {
+            messages.add(String.format(
+                    "All other moves were %s %s the selected one by the %s criteria.",
+                    category, category.equals("equal") ? "to" : "than", criteria));
+        }
+        // majority (but not all) in category
+        else if (count > totalCount * 8 / 10) {
+            messages.add(String.format(
+                    "The majority of other moves (%d out of %d) were %s %s the selected one by the %s criteria.",
+                    count, totalCount, category, category.equals("equal") ? "to" : "than", criteria));
+            if (alternativeCount1 > 0) {
+                messages.add(String.format(
+                        "%d out of remaining moves %s considered %s %s the selected.",
+                        alternativeCount1,
+                        alternativeCount1 == 1 ? "was" : "were",
+                        alternativeCategory1,
+                        alternativeCategory1.equals("equal") ? "to" : "than"));
+            }
+            if (alternativeCount2 > 0) {
+                messages.add(String.format(
+                        "The remaining %s %s.",
+                        alternativeCount2 == 1 ? "move was" : "moves were", alternativeCategory2));
+            }
+        }
+        return String.join(" ", messages);
     }
 
     private String formatRelativeCategory(final Outliers outliers, final String category) {
@@ -468,9 +513,9 @@ public class ExplanationGenerator {
         }
         if (!nodes.isEmpty()) {
             if (nodes.size() > 1) {
-                return String.format("%d moves %s,", nodes.size(), category);
+                return String.format("%d %s moves", nodes.size(), category);
             } else {
-                return "";
+                return String.format("%d %s move", nodes.size(), category);
             }
         }
         return "";
@@ -506,10 +551,11 @@ public class ExplanationGenerator {
             // limited mobility (much less moves than average branching factor)
             if (nodeStats.branchingFactor() < averageBranchingFactor / 8) {
                 messages.add(String.format(
-                        "%s %s %d available moves, which is significanly less than the estimated average branching factor of the game (%f).",
+                        "%s %s %d available move%s, which is significanly less than the estimated average branching factor of the game (%f).",
                         depthString,
                         node.getPlayer() == player ? "we have" : "the opponent has",
                         nodeStats.branchingFactor(),
+                        nodeStats.branchingFactor() == 1 ? "" : "s",
                         averageBranchingFactor));
                 messages.add(String.format(
                         "In this state %s forced to choose from limited number of options.",
