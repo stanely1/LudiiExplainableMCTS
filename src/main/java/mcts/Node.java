@@ -266,27 +266,44 @@ public class Node {
             for (var p = 1; p <= this.game.players().count(); p++) {
                 final var player = p;
 
-                if (player == node.getPlayer()) {
-                    node.pessimisticScores[player] = node.children.stream()
-                            .mapToDouble(child -> child.getPessimisticScore(player))
-                            .max()
-                            .orElse(LOSS_SCORE);
-                } else if (node.isExpanded()) {
-                    node.pessimisticScores[player] = node.children.stream()
-                            .mapToDouble(child -> child.getPessimisticScore(player))
-                            .min()
-                            .orElse(LOSS_SCORE);
-                } else {
-                    node.pessimisticScores[player] = LOSS_SCORE;
-                }
-
                 if (node.isExpanded()) {
-                    node.optimisticScores[player] = node.children.stream()
-                            .mapToDouble(child -> child.getOptimisticScore(player))
-                            .max()
-                            .orElse(WIN_SCORE);
+                    if (player == node.getPlayer()) {
+                        node.pessimisticScores[player] = node.children.stream()
+                                .mapToDouble(child -> child.getPessimisticScore(player))
+                                .max()
+                                .orElse(LOSS_SCORE);
+
+                        node.optimisticScores[player] = node.children.stream()
+                                .mapToDouble(child -> child.getOptimisticScore(player))
+                                .max()
+                                .orElse(WIN_SCORE);
+                    } else {
+                        node.pessimisticScores[player] = node.children.stream()
+                                .mapToDouble(child -> child.getPessimisticScore(player))
+                                .min()
+                                .orElse(LOSS_SCORE);
+
+                        node.optimisticScores[player] = node.children.stream()
+                                .mapToDouble(child -> child.getOptimisticScore(player))
+                                .min()
+                                .orElse(WIN_SCORE);
+                    }
                 } else {
-                    node.optimisticScores[player] = WIN_SCORE;
+                    if (player == node.getPlayer()) {
+                        node.pessimisticScores[player] = node.children.stream()
+                                .mapToDouble(child -> child.getPessimisticScore(player))
+                                .max()
+                                .orElse(LOSS_SCORE);
+
+                        node.optimisticScores[player] = WIN_SCORE;
+                    } else {
+                        node.pessimisticScores[player] = LOSS_SCORE;
+
+                        node.optimisticScores[player] = node.children.stream()
+                                .mapToDouble(child -> child.getOptimisticScore(player))
+                                .min()
+                                .orElse(WIN_SCORE);
+                    }
                 }
             }
             node = node.parent;
