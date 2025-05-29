@@ -1,7 +1,6 @@
 package mcts;
 
 import game.Game;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,10 +33,8 @@ public class ExplainableMcts extends AI {
     private final int backpropagationFlags;
 
     private int lastActionHistorySize = 0;
-    private int lastNumIterations = 0;
     private double lastMoveValue = 0.0;
     private Node lastSelectedNode;
-    private Move lastSelectedMove;
 
     private int totalBranches = 0;
     private int numOfNodes = 0;
@@ -147,15 +144,14 @@ public class ExplainableMcts extends AI {
         }
 
         this.lastSelectedNode = root.select(this.finalMoveSelectionPolicy);
-        this.lastNumIterations = numIterations;
         this.lastMoveValue = lastSelectedNode.getScoreSum(this.player) / lastSelectedNode.getVisitCount();
-        this.lastSelectedMove = lastSelectedNode.getMoveFromParent();
+        final Move selectedMove = lastSelectedNode.getMoveFromParent();
 
-        final String debugString = generateDebugString();
         final String explanation = generateExplanation();
 
-        this.analysisReport = debugString + "\n" + explanation + "\n";
-        return this.lastSelectedMove;
+        this.analysisReport =
+                String.format("[%s] Performed %d iterations.\n%s\n", friendlyName, numIterations, explanation);
+        return selectedMove;
     }
 
     @Override
@@ -164,10 +160,8 @@ public class ExplainableMcts extends AI {
 
         this.root = null;
         this.lastActionHistorySize = 0;
-        this.lastNumIterations = 0;
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
-        this.lastSelectedMove = null;
         this.totalBranches = 0;
         this.numOfNodes = 0;
         this.analysisReport = null;
@@ -181,10 +175,8 @@ public class ExplainableMcts extends AI {
         this.player = -1;
         this.root = null;
         this.lastActionHistorySize = 0;
-        this.lastNumIterations = 0;
         this.lastMoveValue = 0.0;
         this.lastSelectedNode = null;
-        this.lastSelectedMove = null;
         this.totalBranches = 0;
         this.numOfNodes = 0;
         this.analysisReport = null;
@@ -206,85 +198,6 @@ public class ExplainableMcts extends AI {
     @Override
     public String generateAnalysisReport() {
         return analysisReport;
-    }
-
-    private String generateDebugString() {
-        String debugStringBase = String.format(
-                "[%s] Performed %d iterations, selected node: {visits: %d",
-                this.friendlyName, this.lastNumIterations, this.lastSelectedNode.getVisitCount());
-
-        String debugString = debugStringBase + String.format(", score: %.4f", this.lastMoveValue);
-
-        if ((this.backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
-            final var visitCountAMAF = root.getVisitCountAMAF(lastSelectedMove);
-            final var scoreAMAF = root.getScoreSumAMAF(lastSelectedMove, this.player) / visitCountAMAF;
-
-            debugString += String.format(", AMAF visits: %d, AMAF score: %.4f", visitCountAMAF, scoreAMAF);
-        }
-
-        if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
-            final var aStats = globalActionStats.get(new MoveKey(lastSelectedMove, 0));
-            debugString += String.format(
-                    ", global action visits: %d, global action score: %.4f",
-                    aStats.visitCount, aStats.scoreSums[this.player] / aStats.visitCount);
-        }
-
-        if ((this.backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
-            final List<Move> reverseActionSequence = new ArrayList<>();
-            reverseActionSequence.add(lastSelectedMove);
-            final var reverseTrialIterator = root.getContext().trial().reverseMoveIterator();
-
-            for (var n = 1; n <= maxNGramLength; n++) {
-                final var nGram = new Move[n];
-                for (var i = 0; i < n; i++) {
-                    nGram[i] = reverseActionSequence.get(n - i - 1);
-                }
-                final var nGramKey = new NGramMoveKey(nGram, 0);
-
-                if (globalNGramStats.containsKey(nGramKey)) {
-                    final var nGramStats = globalNGramStats.get(nGramKey);
-                    debugString += String.format(
-                            ", %d-gram visits: %d, %d-gram score: %f",
-                            n, nGramStats.visitCount, n, nGramStats.scoreSums[this.player] / nGramStats.visitCount);
-                } else {
-                    break;
-                }
-
-                if (!reverseTrialIterator.hasNext()) {
-                    break;
-                }
-                reverseActionSequence.add(reverseTrialIterator.next());
-            }
-        }
-
-        if ((this.backpropagationFlags & BackpropagationFlags.PROOF_DISPROOF_NUMBERS) != 0) {
-            debugString += String.format(
-                    ", proof number: %d, disproof number: %d",
-                    lastSelectedNode.getProofNumber(), lastSelectedNode.getDisproofNumber());
-        }
-
-        if ((this.backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
-            if (this.lastSelectedNode.isSolved(this.player)) {
-                debugString = debugStringBase
-                        + String.format(
-                                ", solved node with score %.4f",
-                                this.lastSelectedNode.getPessimisticScore(this.player));
-
-                if (this.lastSelectedNode.isWin(this.player)) {
-                    debugString += " (win)";
-                } else if (this.lastSelectedNode.isLoss(this.player)) {
-                    debugString += " (loss)";
-                }
-            } else {
-                debugString += String.format(
-                        ", pess: %.4f, opt: %.4f",
-                        this.lastSelectedNode.getPessimisticScore(this.player),
-                        this.lastSelectedNode.getOptimisticScore(this.player));
-            }
-        }
-
-        debugString += "}";
-        return debugString;
     }
 
     private String generateExplanation() {

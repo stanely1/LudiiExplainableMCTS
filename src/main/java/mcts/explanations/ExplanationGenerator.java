@@ -50,7 +50,20 @@ public class ExplanationGenerator {
     }
 
     public String generateExplanation() {
-        String explanation = String.format("Selected move: %s.\n", moveToString(selectedMove));
+        // serialize tree nodes
+        // String explanation = String.format("Root: %s\n", serializeNode(root));
+        String explanation = String.format("Selected node: %s\n", serializeNode(selectedNode));
+        // if (root.getChildren().size() > 1) {
+        //     explanation += "Other nodes:\n";
+        //     for (final var node : root.getChildren()) {
+        //         if (node != selectedNode) {
+        //             explanation += serializeNode(node) + "\n";
+        //         }
+        //     }
+        // }
+
+        // Natural language explanation
+        explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
 
         explanation += basicExplanation();
         explanation += scoreBoundsExplanation();
@@ -100,6 +113,13 @@ public class ExplanationGenerator {
                     " " + getOutliersExplanation(getMastEval, "MAST score", "in general, regardless of the game phase");
         }
 
+        // TODO: NST outliers
+        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
+            explanation += " TODO: outliers explanaion for NST";
+        }
+
+        // TODO: use PNS?
+
         // -------------------------------------------------------------------------------------------------------------------------------------------
         // Forced Moves / Traps / Uncertainty
         //
@@ -128,6 +148,81 @@ public class ExplanationGenerator {
                 .findFirst()
                 .map(a -> a.toTurnFormat(root.getContext(), true))
                 .orElse(null);
+    }
+
+    private String serializeNode(final Node node) {
+        final Move move = node.getMoveFromParent();
+
+        String nodeStringBase = String.format("{move: %s, visits: %d", moveToString(move), node.getVisitCount());
+
+        String nodeString =
+                nodeStringBase + String.format(", score: %.4f", node.getScoreSum(player) / node.getVisitCount());
+
+        if ((backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
+            final var visitCountAMAF = root.getVisitCountAMAF(move);
+            final var scoreAMAF = root.getScoreSumAMAF(move, player) / visitCountAMAF;
+
+            nodeString += String.format(", AMAF visits: %d, AMAF score: %.4f", visitCountAMAF, scoreAMAF);
+        }
+
+        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
+            final var aStats = globalActionStats.get(new MoveKey(move, 0));
+            nodeString += String.format(
+                    ", global action visits: %d, global action score: %.4f",
+                    aStats.visitCount, aStats.scoreSums[player] / aStats.visitCount);
+        }
+
+        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
+            final List<Move> reverseActionSequence = new ArrayList<>();
+            reverseActionSequence.add(move);
+            final var reverseTrialIterator = root.getContext().trial().reverseMoveIterator();
+
+            for (var n = 1; n <= maxNGramLength; n++) {
+                final var nGram = new Move[n];
+                for (var i = 0; i < n; i++) {
+                    nGram[i] = reverseActionSequence.get(n - i - 1);
+                }
+                final var nGramKey = new NGramMoveKey(nGram, 0);
+
+                if (globalNGramStats.containsKey(nGramKey)) {
+                    final var nGramStats = globalNGramStats.get(nGramKey);
+                    nodeString += String.format(
+                            ", %d-gram visits: %d, %d-gram score: %f",
+                            n, nGramStats.visitCount, n, nGramStats.scoreSums[player] / nGramStats.visitCount);
+                } else {
+                    break;
+                }
+
+                if (!reverseTrialIterator.hasNext()) {
+                    break;
+                }
+                reverseActionSequence.add(reverseTrialIterator.next());
+            }
+        }
+
+        if ((backpropagationFlags & BackpropagationFlags.PROOF_DISPROOF_NUMBERS) != 0) {
+            nodeString += String.format(
+                    ", proof number: %d, disproof number: %d", node.getProofNumber(), node.getDisproofNumber());
+        }
+
+        if ((backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
+            if (node.isSolved(player)) {
+                nodeString = nodeStringBase
+                        + String.format(", solved node with score %.4f", node.getPessimisticScore(player));
+
+                if (node.isWin(player)) {
+                    nodeString += " (win)";
+                } else if (node.isLoss(player)) {
+                    nodeString += " (loss)";
+                }
+            } else {
+                nodeString += String.format(
+                        ", pess: %.4f, opt: %.4f", node.getPessimisticScore(player), node.getOptimisticScore(player));
+            }
+        }
+
+        nodeString += "}";
+        return nodeString;
     }
 
     private String basicExplanation() {
