@@ -67,30 +67,42 @@ public class ExplanationGenerator {
 
         // Natural language explanation
 
-        final double rootScore = root.getScoreSum(player) / root.getVisitCount();
-        final double absRootScore = Math.abs(rootScore);
-        final double rootProbability = scoreToProbability(rootScore);
+        Function<Node, Double> getNodeAverageEval =
+                _node -> _node.isSolved(player) ? _node.getPessimisticScore(player) : _node.getAverageScore(player);
+
+        final double selectedScore = getNodeAverageEval.apply(selectedNode);
+        final double absSelectedScore = Math.abs(selectedScore);
+        final double selectedProbability = scoreToProbability(selectedScore);
+
+        boolean isSolved = selectedNode.isSolved(player);
 
         // general position info
-        explanation += String.format(
-                "Our position is %s (estimated win probability: %.2f%%).\n",
-                absRootScore < 0.1
-                        ? "balanced"
-                        : String.format(
-                                "%s %sadvantageous",
-                                absRootScore < 0.4 ? "slightly" : "strongly", rootScore < 0 ? "dis" : ""),
-                rootProbability);
+        if (!isSolved) {
+            explanation += String.format(
+                    "Our position is %s (estimated win probability: %.2f%%).\n",
+                    absSelectedScore < 0.1
+                            ? "balanced"
+                            : String.format(
+                                    "%s %sadvantageous",
+                                    absSelectedScore < 0.4 ? "slightly" : "strongly", selectedScore < 0 ? "dis" : ""),
+                    selectedProbability);
+        }
+
+        if (isSolved) {
+            String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
+            explanation += String.format("Selected move leads to the proven %s.\n", gameResult);
+        }
 
         final double prevProbability = scoreToProbability(prevTurnScore);
-        final double scoreProbabilityChange = Math.abs(rootProbability - prevProbability);
+        final double scoreProbabilityChange = Math.abs(selectedProbability - prevProbability);
 
         // score change over previous turn
-        if (scoreProbabilityChange > 10.0) {
+        if (scoreProbabilityChange > 10.0 && !isSolved) {
             explanation += String.format(
                     "The overall estimation of our position %s over the previous turn (%.2f%% %s win probability).\n",
-                    rootProbability > prevProbability ? "improved" : "degraded",
+                    selectedProbability > prevProbability ? "improved" : "degraded",
                     scoreProbabilityChange,
-                    rootProbability > prevProbability ? "increased" : "decreased");
+                    selectedProbability > prevProbability ? "increased" : "decreased");
         }
 
         // general info on available moves
@@ -155,7 +167,6 @@ public class ExplanationGenerator {
         //     explanation += " TODO: outliers explanaion for NST";
         // }
 
-        Function<Node, Double> getNodeAverageEval = _node -> _node.getAverageScore(player);
         final var avgOutliers = new Outliers(root, selectedNode, getNodeAverageEval);
 
         final var sortedAvgNodes = avgOutliers.getSortedNodes();
@@ -163,7 +174,7 @@ public class ExplanationGenerator {
         final var bestAvgNode = sortedAvgNodes.get(0);
 
         // worst node is at least good
-        if (avgOutliers.getGoodNodes().contains(worstAvgNode)
+        if (!isSolved && avgOutliers.getGoodNodes().contains(worstAvgNode)
                 || avgOutliers.getVeryGoodNodes().contains(worstAvgNode)) {
             explanation += String.format(
                     "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
@@ -171,7 +182,7 @@ public class ExplanationGenerator {
         }
 
         // best node is at most bad
-        else if (avgOutliers.getBadNodes().contains(bestAvgNode)
+        else if (!isSolved && avgOutliers.getBadNodes().contains(bestAvgNode)
                 || avgOutliers.getVeryBadNodes().contains(bestAvgNode)) {
             explanation += String.format(
                     "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
@@ -193,17 +204,22 @@ public class ExplanationGenerator {
             } else {
                 explanation += String.format(". %d of them have", numOfMuchWorseNodesThatAreVeryBad);
             }
-            explanation += String.format(
-                    " estimated winning probability of at most %.2f%%.\n",
-                    scoreToProbability(veryBadNodes.get(0).getAverageScore(player)));
+
+            final var veryBadBestNode = veryBadNodes.get(0);
+            final var veryBadBestProbability =
+                    scoreToProbability(getNodeAverageEval.apply(veryBadBestNode));
+            if (veryBadBestProbability == 0.0) {
+                explanation += String.format(" %s loss.\n", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
+            } else {
+                explanation += String.format(" estimated winning probability below %.2f%%.\n", veryBadBestProbability);
+            }
         }
 
         // all nodes were worse
         final var slightlyWorseNodes = avgOutliers.getSlightlyWorseNodes();
-        if (moveCount > 1 && slightlyWorseNodes.size() + muchWorseNodes.size() == moveCount - 1) {
+        if (!isSolved && moveCount > 1 && slightlyWorseNodes.size() + muchWorseNodes.size() == moveCount - 1) {
             final var secondBestNode = sortedAvgNodes.get(1);
-            final var scoreDiff = scoreToProbability(selectedNode.getAverageScore(player))
-                    - scoreToProbability(secondBestNode.getAverageScore(player));
+            final var scoreDiff = selectedProbability - scoreToProbability(getNodeAverageEval.apply(secondBestNode));
             explanation += String.format(
                     "The selected move is %s better than all other options (%.2f%% increased win probability over the next best option, %s).\n",
                     slightlyWorseNodes.isEmpty() ? "significantly" : "slightly",
@@ -212,20 +228,19 @@ public class ExplanationGenerator {
         }
 
         // counterintuitive move
-        //
         final var slightlyBetterNodes = avgOutliers.getSlightlyBetterNodes();
         final var muchBetterNodes = avgOutliers.getMuchBetterNodes();
         final var betterCount = slightlyBetterNodes.size() + muchBetterNodes.size();
 
         final var bestAvgMove = bestAvgNode.getMoveFromParent();
 
-        if (betterCount > 0) {
-            final var scoreDiff = scoreToProbability(bestAvgNode.getAverageScore(player))
-                    - scoreToProbability(selectedNode.getAverageScore(player));
+        if (!isSolved && betterCount > 0) {
+            final var scoreDiff = scoreToProbability(getNodeAverageEval.apply(bestAvgNode))
+                    - selectedProbability;
 
             explanation += String.format(
                     "The selected best move %s have estimated win probability of %.2f%%, but it was not chosen based on that metric. ",
-                    moveToString(selectedMove), scoreToProbability(selectedNode.getAverageScore(player)));
+                    moveToString(selectedMove), selectedProbability);
             if (betterCount == 1) {
                 explanation += String.format(
                         "There is one move (%s) with higher win probability, which is better by %.2f%%). ",
@@ -273,10 +288,10 @@ public class ExplanationGenerator {
         }
 
         // node not solved but we have (upper/lower) score bound = 0
-        if (!root.isSolved(player)) {
-            if (root.getPessimisticScore(player) == 0) {
+        if (!isSolved) {
+            if (selectedNode.getPessimisticScore(player) == 0) {
                 explanation += "\nIn this position, it is impossible to lose; the worst achievable result is a draw.\n";
-            } else if (root.getOptimisticScore(player) == 0) {
+            } else if (selectedNode.getOptimisticScore(player) == 0) {
                 explanation += "\nIn this position, it is impossible to win; the best achievable result is a draw.\n";
             }
         }
@@ -293,21 +308,21 @@ public class ExplanationGenerator {
                 .toList()
                 .get(0);
 
-        if (provenBadNodes.size() > moveCount * 62 / 100) {
+        if (provenBadNodes.size() > moveCount * 62 / 100 && !remainingNodes.isEmpty()) {
             if (remainingNodes.size() == 1) {
                 explanation += "All but one of available moves are proven lost. ";
                 explanation += String.format(
                         "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%)",
                         moveToString(selectedMove),
                         selectedNodeCategory,
-                        scoreToProbability(selectedNode.getAverageScore(player)));
+                        selectedProbability);
             } else {
                 explanation += String.format("All but %d of available moves are proven lost", remainingNodes.size());
                 explanation += String.format(
                         "Among the remaining ones %s is the best, and leads to a %s position (estimated win probability is %.2f%%)",
                         moveToString(selectedMove),
                         selectedNodeCategory,
-                        scoreToProbability(selectedNode.getAverageScore(player)));
+                        selectedProbability);
             }
         }
 

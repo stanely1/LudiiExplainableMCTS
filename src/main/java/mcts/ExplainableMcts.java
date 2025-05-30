@@ -154,7 +154,8 @@ public class ExplainableMcts extends AI {
                 "[%s] Performed %d iterations. Previous turn score: %.4f.\n%s\n",
                 friendlyName, numIterations, prevTurnScore, explanation);
 
-        this.prevTurnScore = root.getAverageScore(this.player);
+        // this.prevTurnScore = root.getAverageScore(this.player);
+        this.prevTurnScore = lastSelectedNode.getAverageScore(this.player);
         return selectedMove;
     }
 
