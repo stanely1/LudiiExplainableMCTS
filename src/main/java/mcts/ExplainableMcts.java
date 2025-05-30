@@ -34,6 +34,7 @@ public class ExplainableMcts extends AI {
 
     private int lastActionHistorySize = 0;
     private double lastMoveValue = 0.0;
+    private double prevTurnScore = 0.0;
     private Node lastSelectedNode;
 
     private int totalBranches = 0;
@@ -149,8 +150,11 @@ public class ExplainableMcts extends AI {
 
         final String explanation = generateExplanation();
 
-        this.analysisReport =
-                String.format("[%s] Performed %d iterations.\n%s\n", friendlyName, numIterations, explanation);
+        this.analysisReport = String.format(
+                "[%s] Performed %d iterations. Previous turn score: %.4f.\n%s\n",
+                friendlyName, numIterations, prevTurnScore, explanation);
+
+        this.prevTurnScore = root.getScoreSum(this.player) / root.getVisitCount();
         return selectedMove;
     }
 
@@ -161,6 +165,7 @@ public class ExplainableMcts extends AI {
         this.root = null;
         this.lastActionHistorySize = 0;
         this.lastMoveValue = 0.0;
+        this.prevTurnScore = 0.0;
         this.lastSelectedNode = null;
         this.totalBranches = 0;
         this.numOfNodes = 0;
@@ -176,6 +181,7 @@ public class ExplainableMcts extends AI {
         this.root = null;
         this.lastActionHistorySize = 0;
         this.lastMoveValue = 0.0;
+        this.prevTurnScore = 0.0;
         this.lastSelectedNode = null;
         this.totalBranches = 0;
         this.numOfNodes = 0;
@@ -204,6 +210,7 @@ public class ExplainableMcts extends AI {
         final var explanationGenerator = new ExplanationGenerator(
                 this.root,
                 this.lastSelectedNode,
+                this.prevTurnScore,
                 this.globalActionStats,
                 this.globalNGramStats,
                 this.maxNGramLength,

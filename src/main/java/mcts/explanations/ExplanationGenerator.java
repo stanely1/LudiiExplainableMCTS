@@ -14,6 +14,7 @@ import search.mcts.MCTS.*;
 public class ExplanationGenerator {
     private final Node root;
     private final Node selectedNode;
+    private final double prevTurnScore;
 
     private final Map<MoveKey, ActionStats> globalActionStats;
     private final Map<NGramMoveKey, ActionStats> globalNGramStats;
@@ -30,6 +31,7 @@ public class ExplanationGenerator {
     public ExplanationGenerator(
             final Node root,
             final Node selectedNode,
+            final double prevTurnScore,
             final Map<MoveKey, ActionStats> globalActionStats,
             final Map<NGramMoveKey, ActionStats> globalNGramStats,
             final int maxNGramLength,
@@ -38,6 +40,7 @@ public class ExplanationGenerator {
             final double averageBranchingFactor) {
         this.root = root;
         this.selectedNode = selectedNode;
+        this.prevTurnScore = prevTurnScore;
         this.globalActionStats = globalActionStats;
         this.globalNGramStats = globalNGramStats;
         this.maxNGramLength = maxNGramLength;
@@ -53,16 +56,49 @@ public class ExplanationGenerator {
         // serialize tree nodes
         // String explanation = String.format("Root: %s\n", serializeNode(root));
         String explanation = String.format("Selected node: %s\n", serializeNode(selectedNode));
-        // if (root.getChildren().size() > 1) {
-        //     explanation += "Other nodes:\n";
-        //     for (final var node : root.getChildren()) {
-        //         if (node != selectedNode) {
-        //             explanation += serializeNode(node) + "\n";
-        //         }
-        //     }
-        // }
+        if (root.getChildren().size() > 1) {
+            explanation += "Other nodes:\n";
+            for (final var node : root.getChildren()) {
+                if (node != selectedNode) {
+                    explanation += serializeNode(node) + "\n";
+                }
+            }
+        }
 
         // Natural language explanation
+
+        final double rootScore = root.getScoreSum(player) / root.getVisitCount();
+        final double absRootScore = Math.abs(rootScore);
+        final double rootProbability = scoreToProbability(rootScore);
+
+        // general position info
+        explanation += String.format(
+                "Our position is %s (estimated win probability: %.2f%%).\n",
+                absRootScore < 0.1
+                        ? "balanced"
+                        : String.format(
+                                "%s %sadvantageous",
+                                absRootScore < 0.45 ? "slightly" : "strongly", rootScore < 0 ? "dis" : ""),
+                rootProbability);
+
+        final double prevProbability = scoreToProbability(prevTurnScore);
+        final double scoreProbabilityChange = Math.abs(rootProbability - prevProbability);
+
+        // score change over previous turn
+        if (scoreProbabilityChange > 10.0) {
+            explanation += String.format(
+                    "The overall estimation of our position %s over the previous turn (%.2f%% %s win probability).\n",
+                    rootProbability > prevProbability ? "improved" : "degraded",
+                    scoreProbabilityChange,
+                    rootProbability > prevProbability ? "increased" : "decreased");
+        }
+
+        // general info on available moves
+        final int moveCount = root.getChildren().size();
+        explanation += String.format(
+                "There %s %d move%s available.\n",
+                moveCount == 1 ? "was" : "were", moveCount, moveCount == 1 ? "" : "s");
+
         explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
 
         explanation += basicExplanation();
@@ -150,6 +186,11 @@ public class ExplanationGenerator {
                 .orElse(null);
     }
 
+    // Probabiliy (%)
+    private double scoreToProbability(final double score) {
+        return 100.0 * (score + 1.0) / 2.0;
+    }
+
     private String serializeNode(final Node node) {
         final Move move = node.getMoveFromParent();
 
@@ -207,8 +248,7 @@ public class ExplanationGenerator {
 
         if ((backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
             if (node.isSolved(player)) {
-                nodeString = nodeStringBase
-                        + String.format(", solved node with score %.4f", node.getPessimisticScore(player));
+                nodeString += String.format(", solved node with score %.4f", node.getPessimisticScore(player));
 
                 if (node.isWin(player)) {
                     nodeString += " (win)";
