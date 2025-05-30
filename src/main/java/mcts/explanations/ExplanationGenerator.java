@@ -211,6 +211,67 @@ public class ExplanationGenerator {
                     moveToString(secondBestNode.getMoveFromParent()));
         }
 
+        // counterintuitive move
+        //
+        final var slightlyBetterNodes = avgOutliers.getSlightlyBetterNodes();
+        final var muchBetterNodes = avgOutliers.getMuchBetterNodes();
+        final var betterCount = slightlyBetterNodes.size() + muchBetterNodes.size();
+
+        final var bestAvgMove = bestAvgNode.getMoveFromParent();
+
+        if (betterCount > 0) {
+            final var scoreDiff = scoreToProbability(bestAvgNode.getAverageScore(player))
+                    - scoreToProbability(selectedNode.getAverageScore(player));
+
+            explanation += String.format(
+                    "The selected best move %s have estimated win probability of %.2f%%, but it was not chosen based on that metric. ",
+                    moveToString(selectedMove), scoreToProbability(selectedNode.getAverageScore(player)));
+            if (betterCount == 1) {
+                explanation += String.format(
+                        "There is one move (%s) with higher win probability, which is better by %.2f%%). ",
+                        moveToString(bestAvgMove), scoreDiff);
+            } else {
+                explanation += String.format(
+                        "There are %d moves with higher win probability (best of them, %s, is better by %.2f%%). ",
+                        betterCount, moveToString(bestAvgMove), scoreDiff);
+            }
+
+            // selected move was better by AMAF
+            final var visitCountAMAF = root.getVisitCountAMAF(selectedMove);
+            if (visitCountAMAF > 0) {
+                final var selectedAMAF = root.getScoreSumAMAF(selectedMove, player) / visitCountAMAF;
+                final var otherAMAF = root.getScoreSumAMAF(bestAvgMove, player) / root.getVisitCountAMAF(bestAvgMove);
+
+                final var scoreDiffAMAF = scoreToProbability(selectedAMAF) - scoreToProbability(otherAMAF);
+
+                if (scoreDiffAMAF > 0) {
+                    if (betterCount == 1) {
+                        explanation += String.format(
+                                "However, this move has %s worse AMAF score (%.2f%% worse), which influenced the result. ",
+                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly", scoreDiffAMAF);
+                    } else {
+                        explanation += String.format(
+                                "However, these moves have %s worse AMAF scores (%.2f%% worse for %s), which influenced the result. ",
+                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly",
+                                scoreDiffAMAF,
+                                moveToString(bestAvgMove));
+                    }
+                } else {
+                    if (betterCount == 1) {
+                        explanation += "However, this move has worse visit count, which influenced the result. ";
+                    } else {
+                        explanation += "However, these moves have worse visit count, which influenced the result. ";
+                    }
+                }
+            } else {
+                if (betterCount == 1) {
+                    explanation += "However, this move has worse visit count, which influenced the result. ";
+                } else {
+                    explanation += "However, these moves have worse visit count, which influenced the result. ";
+                }
+            }
+        }
+
         // TODO: use PNS?
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
