@@ -75,7 +75,7 @@ public class ExplanationGenerator {
         final double absSelectedScore = Math.abs(selectedScore);
         final double selectedProbability = scoreToProbability(selectedScore);
 
-        boolean isSolved = selectedNode.isSolved(player);
+        final boolean isSolved = selectedNode.isSolved(player);
 
         // general info on available moves
         // -------------------------------------------------------------------------------------------------------------------------
@@ -253,7 +253,6 @@ public class ExplanationGenerator {
 
         // worst node is at least good
         if (!isSolved
-                && worstAvgNode.getVisitCount() > 1
                 && (avgOutliers.getGoodNodes().contains(worstAvgNode)
                         || avgOutliers.getVeryGoodNodes().contains(worstAvgNode))) {
             explanation += String.format(
@@ -263,7 +262,6 @@ public class ExplanationGenerator {
 
         // best node is at most bad
         else if (!isSolved
-                && bestAvgNode.getVisitCount() > 1
                 && (avgOutliers.getBadNodes().contains(bestAvgNode)
                         || avgOutliers.getVeryBadNodes().contains(bestAvgNode))) {
             explanation += String.format(
