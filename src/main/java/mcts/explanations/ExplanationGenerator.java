@@ -89,8 +89,25 @@ public class ExplanationGenerator {
         }
 
         if (isSolved) {
+            final var pv = getPV(selectedNode);
             String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
-            explanation += String.format("Selected move leads to the proven %s.\n", gameResult);
+
+            explanation += String.format("Selected move leads to the proven %s ", gameResult);
+
+            if (pv.isEmpty()) {
+                explanation += "after this move.\n";
+            } else if (pv.size() < 4) {
+                explanation += String.format(
+                        "in %d turns. After we play this move, the most probable sequence of following moves will be: ",
+                        pv.size());
+                explanation += String.join(
+                                ", ",
+                                pv.stream()
+                                        .map(v -> moveToString(v.getMoveFromParent()))
+                                        .toList()) + ".\n";
+            } else {
+                explanation += String.format("in %d turns.\n", pv.size());
+            }
         }
 
         final double prevProbability = scoreToProbability(prevTurnScore);
@@ -206,10 +223,10 @@ public class ExplanationGenerator {
             }
 
             final var veryBadBestNode = veryBadNodes.get(0);
-            final var veryBadBestProbability =
-                    scoreToProbability(getNodeAverageEval.apply(veryBadBestNode));
+            final var veryBadBestProbability = scoreToProbability(getNodeAverageEval.apply(veryBadBestNode));
             if (veryBadBestProbability == 0.0) {
-                explanation += String.format(" %s loss.\n", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
+                explanation +=
+                        String.format(" %s loss.\n", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
             } else {
                 explanation += String.format(" estimated winning probability below %.2f%%.\n", veryBadBestProbability);
             }
@@ -235,8 +252,7 @@ public class ExplanationGenerator {
         final var bestAvgMove = bestAvgNode.getMoveFromParent();
 
         if (!isSolved && betterCount > 0) {
-            final var scoreDiff = scoreToProbability(getNodeAverageEval.apply(bestAvgNode))
-                    - selectedProbability;
+            final var scoreDiff = scoreToProbability(getNodeAverageEval.apply(bestAvgNode)) - selectedProbability;
 
             explanation += String.format(
                     "The selected best move %s have estimated win probability of %.2f%%, but it was not chosen based on that metric. ",
@@ -313,16 +329,12 @@ public class ExplanationGenerator {
                 explanation += "All but one of available moves are proven lost. ";
                 explanation += String.format(
                         "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%)",
-                        moveToString(selectedMove),
-                        selectedNodeCategory,
-                        selectedProbability);
+                        moveToString(selectedMove), selectedNodeCategory, selectedProbability);
             } else {
                 explanation += String.format("All but %d of available moves are proven lost", remainingNodes.size());
                 explanation += String.format(
                         "Among the remaining ones %s is the best, and leads to a %s position (estimated win probability is %.2f%%)",
-                        moveToString(selectedMove),
-                        selectedNodeCategory,
-                        selectedProbability);
+                        moveToString(selectedMove), selectedNodeCategory, selectedProbability);
             }
         }
 
@@ -357,6 +369,15 @@ public class ExplanationGenerator {
                 .findFirst()
                 .map(a -> a.toTurnFormat(root.getContext(), true))
                 .orElse(null);
+    }
+
+    private List<Node> getPV(Node node) {
+        List<Node> result = new ArrayList<>();
+        while (!node.isTerminal()) {
+            node = node.select(finalMoveSelectionPolicy);
+            result.add(node);
+        }
+        return result;
     }
 
     // Probabiliy (%)
