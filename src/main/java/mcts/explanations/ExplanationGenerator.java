@@ -252,16 +252,20 @@ public class ExplanationGenerator {
         final var bestAvgNode = sortedAvgNodes.get(0);
 
         // worst node is at least good
-        if (!isSolved && avgOutliers.getGoodNodes().contains(worstAvgNode)
-                || avgOutliers.getVeryGoodNodes().contains(worstAvgNode)) {
+        if (!isSolved
+                && worstAvgNode.getVisitCount() > 1
+                && (avgOutliers.getGoodNodes().contains(worstAvgNode)
+                        || avgOutliers.getVeryGoodNodes().contains(worstAvgNode))) {
             explanation += String.format(
                     "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
                     scoreToProbability(getNodeAverageEval.apply(worstAvgNode)));
         }
 
         // best node is at most bad
-        else if (!isSolved && avgOutliers.getBadNodes().contains(bestAvgNode)
-                || avgOutliers.getVeryBadNodes().contains(bestAvgNode)) {
+        else if (!isSolved
+                && bestAvgNode.getVisitCount() > 1
+                && (avgOutliers.getBadNodes().contains(bestAvgNode)
+                        || avgOutliers.getVeryBadNodes().contains(bestAvgNode))) {
             explanation += String.format(
                     "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
                     scoreToProbability(getNodeAverageEval.apply(bestAvgNode)));
