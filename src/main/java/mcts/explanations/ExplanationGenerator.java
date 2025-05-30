@@ -198,6 +198,19 @@ public class ExplanationGenerator {
                     scoreToProbability(veryBadNodes.get(0).getAverageScore(player)));
         }
 
+        // all nodes were worse
+        final var slightlyWorseNodes = avgOutliers.getSlightlyWorseNodes();
+        if (moveCount > 1 && slightlyWorseNodes.size() + muchWorseNodes.size() == moveCount - 1) {
+            final var secondBestNode = sortedAvgNodes.get(1);
+            final var scoreDiff = scoreToProbability(selectedNode.getAverageScore(player))
+                    - scoreToProbability(secondBestNode.getAverageScore(player));
+            explanation += String.format(
+                    "The selected move is %s better than all other options (%.2f%% increased win probability over the next best option, %s).\n",
+                    slightlyWorseNodes.isEmpty() ? "significantly" : "slightly",
+                    scoreDiff,
+                    moveToString(secondBestNode.getMoveFromParent()));
+        }
+
         // TODO: use PNS?
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
