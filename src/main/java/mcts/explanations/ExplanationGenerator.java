@@ -144,10 +144,29 @@ public class ExplanationGenerator {
                 moveCount == 1 ? "" : "s",
                 String.join(", ", moveCategoryStrings));
 
-        explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
+        final var sortedAvgNodes = avgOutliers.getSortedNodes();
+        final var worstAvgNode = sortedAvgNodes.get(sortedAvgNodes.size() - 1);
+        final var bestAvgNode = sortedAvgNodes.get(0);
 
+        // worst node is at least good
+        if (!isSolved
+                && (avgOutliers.getGoodNodes().contains(worstAvgNode)
+                        || avgOutliers.getVeryGoodNodes().contains(worstAvgNode))) {
+            explanation += String.format(
+                    "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
+                    scoreToProbability(getNodeAverageEval.apply(worstAvgNode)));
+        }
+        // best node is at most bad
+        else if (!isSolved
+                && (avgOutliers.getBadNodes().contains(bestAvgNode)
+                        || avgOutliers.getVeryBadNodes().contains(bestAvgNode))) {
+            explanation += String.format(
+                    "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
+                    scoreToProbability(getNodeAverageEval.apply(bestAvgNode)));
+        }
         // general position info
-        if (!isSolved) {
+        else if (!isSolved) {
+            explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
             explanation += String.format(
                     "Our position is %s (estimated win probability: %.2f%%).\n",
                     absSelectedScore < 0.1
@@ -162,7 +181,8 @@ public class ExplanationGenerator {
             final var pv = getPV(selectedNode);
             String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
 
-            explanation += String.format("Selected move leads to the proven %s ", gameResult);
+            explanation +=
+                    String.format("Selected move, %s, leads to the proven %s ", moveToString(selectedMove), gameResult);
 
             if (pv.isEmpty()) {
                 explanation += "after this move.\n";
@@ -246,28 +266,6 @@ public class ExplanationGenerator {
         // if ((backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
         //     explanation += " TODO: outliers explanaion for NST";
         // }
-
-        final var sortedAvgNodes = avgOutliers.getSortedNodes();
-        final var worstAvgNode = sortedAvgNodes.get(sortedAvgNodes.size() - 1);
-        final var bestAvgNode = sortedAvgNodes.get(0);
-
-        // worst node is at least good
-        if (!isSolved
-                && (avgOutliers.getGoodNodes().contains(worstAvgNode)
-                        || avgOutliers.getVeryGoodNodes().contains(worstAvgNode))) {
-            explanation += String.format(
-                    "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
-                    scoreToProbability(getNodeAverageEval.apply(worstAvgNode)));
-        }
-
-        // best node is at most bad
-        else if (!isSolved
-                && (avgOutliers.getBadNodes().contains(bestAvgNode)
-                        || avgOutliers.getVeryBadNodes().contains(bestAvgNode))) {
-            explanation += String.format(
-                    "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
-                    scoreToProbability(getNodeAverageEval.apply(bestAvgNode)));
-        }
 
         // there are moves significantly worse that are in fact very bad
         final var veryBadNodes = avgOutliers.getVeryBadNodes();
@@ -437,7 +435,7 @@ public class ExplanationGenerator {
 
     private List<Node> getPV(Node node) {
         List<Node> result = new ArrayList<>();
-        while (!node.isTerminal()) {
+        while (node != null && !node.isTerminal()) {
             node = node.select(finalMoveSelectionPolicy);
             result.add(node);
         }
