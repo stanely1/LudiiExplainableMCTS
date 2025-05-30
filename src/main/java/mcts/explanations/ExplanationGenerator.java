@@ -138,7 +138,7 @@ public class ExplanationGenerator {
 
         final int moveCount = root.getChildren().size();
         explanation += String.format(
-                "There %s %d move%s available (%s).\n",
+                "There %s %d move%s available: %s.\n",
                 moveCount == 1 ? "is" : "are",
                 moveCount,
                 moveCount == 1 ? "" : "s",
@@ -182,11 +182,11 @@ public class ExplanationGenerator {
             String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
 
             explanation +=
-                    String.format("Selected move, %s, leads to the proven %s ", moveToString(selectedMove), gameResult);
+                    String.format("Selected move, %s, leads to a proven %s ", moveToString(selectedMove), gameResult);
 
             if (pv.isEmpty()) {
                 explanation += "after this move.\n";
-            } else if (pv.size() < 4) {
+            } else if (pv.size() <= 5) {
                 explanation += String.format(
                         "in %d turns. After we play this move, the most probable sequence of following moves will be: ",
                         pv.size());
@@ -275,10 +275,14 @@ public class ExplanationGenerator {
                 .count();
         if (numOfMuchWorseNodesThatAreVeryBad > 0) {
             explanation += String.format(
-                    "%d of available moves %s significantly worse. ",
+                    "%d of alternative moves %s significantly worse. ",
                     muchWorseNodes.size(), muchWorseNodes.size() == 1 ? "is" : "are");
             if (numOfMuchWorseNodesThatAreVeryBad == muchWorseNodes.size()) {
-                explanation += "All of them ";
+                if (numOfMuchWorseNodesThatAreVeryBad == 1) {
+                    explanation += "It ";
+                } else {
+                    explanation += "All of them ";
+                }
             } else {
                 explanation += String.format("%d of them ", numOfMuchWorseNodesThatAreVeryBad);
             }
@@ -286,11 +290,14 @@ public class ExplanationGenerator {
             final var veryBadBestNode = veryBadNodes.get(0);
             final var veryBadBestProbability = scoreToProbability(getNodeAverageEval.apply(veryBadBestNode));
             if (veryBadBestProbability == 0.0) {
-                explanation +=
-                        String.format("are %s loss.\n", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
+                explanation += String.format(
+                        "%s %s defeat.\n",
+                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "is" : "are",
+                        veryBadBestNode.isLoss(player) ? "a proven" : "highly likely a");
             } else {
-                explanation +=
-                        String.format("have estimated winning probability below %.2f%%.\n", veryBadBestProbability);
+                explanation += String.format(
+                        "%s estimated winning probability below %.2f%%.\n",
+                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "has" : "have", veryBadBestProbability);
             }
         }
 
@@ -317,7 +324,7 @@ public class ExplanationGenerator {
             final var scoreDiff = scoreToProbability(getNodeAverageEval.apply(bestAvgNode)) - selectedProbability;
 
             explanation += String.format(
-                    "The selected best move %s have estimated win probability of %.2f%%, but it was not chosen based on that metric. ",
+                    "The selected best move, %s, has estimated win probability of %.2f%%, but it was not chosen based on that metric. ",
                     moveToString(selectedMove), selectedProbability);
             if (betterCount == 1) {
                 explanation += String.format(
@@ -388,12 +395,12 @@ public class ExplanationGenerator {
 
         if (provenBadNodes.size() > moveCount * 62 / 100 && !remainingNodes.isEmpty()) {
             if (remainingNodes.size() == 1) {
-                explanation += "All but one of available moves are proven lost. ";
+                explanation += "All but one of available moves are proven defeat. ";
                 explanation += String.format(
                         "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%)",
                         moveToString(selectedMove), selectedNodeCategory, selectedProbability);
             } else {
-                explanation += String.format("All but %d of available moves are proven lost", remainingNodes.size());
+                explanation += String.format("All but %d of available moves are proven defeat", remainingNodes.size());
                 explanation += String.format(
                         "Among the remaining ones %s is the best, and leads to a %s position (estimated win probability is %.2f%%)",
                         moveToString(selectedMove), selectedNodeCategory, selectedProbability);
