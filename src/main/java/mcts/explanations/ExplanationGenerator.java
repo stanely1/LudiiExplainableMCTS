@@ -78,7 +78,7 @@ public class ExplanationGenerator {
                         ? "balanced"
                         : String.format(
                                 "%s %sadvantageous",
-                                absRootScore < 0.45 ? "slightly" : "strongly", rootScore < 0 ? "dis" : ""),
+                                absRootScore < 0.4 ? "slightly" : "strongly", rootScore < 0 ? "dis" : ""),
                 rootProbability);
 
         final double prevProbability = scoreToProbability(prevTurnScore);
@@ -96,16 +96,15 @@ public class ExplanationGenerator {
         // general info on available moves
         final int moveCount = root.getChildren().size();
         explanation += String.format(
-                "There %s %d move%s available.\n",
-                moveCount == 1 ? "was" : "were", moveCount, moveCount == 1 ? "" : "s");
+                "There %s %d move%s available.\n", moveCount == 1 ? "is" : "are", moveCount, moveCount == 1 ? "" : "s");
 
         explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
 
-        explanation += basicExplanation();
-        explanation += scoreBoundsExplanation();
-        explanation += mastExplanation();
-        explanation += nstExplanation();
-        explanation += graveExplanation();
+        // explanation += basicExplanation();
+        // explanation += scoreBoundsExplanation();
+        // explanation += mastExplanation();
+        // explanation += nstExplanation();
+        // explanation += graveExplanation();
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
         // Outliers 🥰
@@ -127,31 +126,76 @@ public class ExplanationGenerator {
         // 4. All good except or a few - Overall it's OK, but some are significantly worse.
         // -------------------------------------------------------------------------------------------------------------------------------------------
 
-        explanation += "\n";
+        // explanation += "\n";
 
-        Function<Node, Double> getNodeAverageEval = _node -> _node.getScoreSum(player) / _node.getVisitCount();
-        explanation += " " + getOutliersExplanation(getNodeAverageEval, "average score", "in current situation");
+        // Function<Node, Double> getNodeAverageEval = _node -> _node.getScoreSum(player) / _node.getVisitCount();
+        // explanation += " " + getOutliersExplanation(getNodeAverageEval, "average score", "in current situation");
 
-        if ((backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
-            Function<Node, Double> getNodeGraveEval = _node -> root.getScoreSumAMAF(_node.getMoveFromParent(), player)
-                    / root.getVisitCountAMAF(_node.getMoveFromParent());
-            explanation += " "
-                    + getOutliersExplanation(
-                            getNodeGraveEval, "AMAF score", "in game phases that follow the current state");
+        // if ((backpropagationFlags & BackpropagationFlags.AMAF_STATS) != 0) {
+        //     Function<Node, Double> getNodeGraveEval = _node -> root.getScoreSumAMAF(_node.getMoveFromParent(),
+        // player)
+        //             / root.getVisitCountAMAF(_node.getMoveFromParent());
+        //     explanation += " "
+        //             + getOutliersExplanation(
+        //                     getNodeGraveEval, "AMAF score", "in game phases that follow the current state");
+        // }
+
+        // if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
+        //     Function<Node, Double> getMastEval = _node -> {
+        //         final var aStats = globalActionStats.get(new MoveKey(_node.getMoveFromParent(), 0));
+        //         return aStats.scoreSums[player] / aStats.visitCount;
+        //     };
+        //     explanation +=
+        //             " " + getOutliersExplanation(getMastEval, "MAST score", "in general, regardless of the game
+        // phase");
+        // }
+
+        // // TODO: NST outliers
+        // if ((backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
+        //     explanation += " TODO: outliers explanaion for NST";
+        // }
+
+        Function<Node, Double> getNodeAverageEval = _node -> _node.getAverageScore(player);
+        final var avgOutliers = new Outliers(root, selectedNode, getNodeAverageEval);
+
+        final var sortedAvgNodes = avgOutliers.getSortedNodes();
+        final var worstAvgNode = sortedAvgNodes.get(sortedAvgNodes.size() - 1);
+        final var bestAvgNode = sortedAvgNodes.get(0);
+
+        // worst node is at least good
+        if (avgOutliers.getGoodNodes().contains(worstAvgNode)
+                || avgOutliers.getVeryGoodNodes().contains(worstAvgNode)) {
+            explanation += String.format(
+                    "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
+                    scoreToProbability(getNodeAverageEval.apply(worstAvgNode)));
         }
 
-        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
-            Function<Node, Double> getMastEval = _node -> {
-                final var aStats = globalActionStats.get(new MoveKey(_node.getMoveFromParent(), 0));
-                return aStats.scoreSums[player] / aStats.visitCount;
-            };
-            explanation +=
-                    " " + getOutliersExplanation(getMastEval, "MAST score", "in general, regardless of the game phase");
+        // best node is at most bad
+        else if (avgOutliers.getBadNodes().contains(bestAvgNode)
+                || avgOutliers.getVeryBadNodes().contains(bestAvgNode)) {
+            explanation += String.format(
+                    "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
+                    scoreToProbability(getNodeAverageEval.apply(bestAvgNode)));
         }
 
-        // TODO: NST outliers
-        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
-            explanation += " TODO: outliers explanaion for NST";
+        // there are moves significantly worse that are in fact very bad
+        final var veryBadNodes = avgOutliers.getVeryBadNodes();
+        final var muchWorseNodes = avgOutliers.getMuchWorseNodes();
+        final var numOfMuchWorseNodesThatAreVeryBad = muchWorseNodes.stream()
+                .filter(node -> veryBadNodes.contains(node))
+                .count();
+        if (numOfMuchWorseNodesThatAreVeryBad > 0) {
+            explanation += String.format(
+                    "%d of available moves %s significantly worse",
+                    muchWorseNodes.size(), muchWorseNodes.size() == 1 ? "is" : "are");
+            if (numOfMuchWorseNodesThatAreVeryBad == muchWorseNodes.size()) {
+                explanation += ", with";
+            } else {
+                explanation += String.format(". %d of them have", numOfMuchWorseNodesThatAreVeryBad);
+            }
+            explanation += String.format(
+                    " estimated winning probability of at most %.2f%%.\n",
+                    scoreToProbability(veryBadNodes.get(0).getAverageScore(player)));
         }
 
         // TODO: use PNS?
@@ -163,16 +207,17 @@ public class ExplanationGenerator {
         // note what the situation looks like:
         //
 
-        explanation += "\n";
-        explanation += getForcedMovesExplanation(selectedNode, "the selected move", 0);
+        // explanation += "\n";
+        // explanation += getForcedMovesExplanation(selectedNode, "the selected move", 0);
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
         // Traps - forced moves with different selectedNode
 
-        for (Node wantedNode : root.getChildren()) {
-            if (wantedNode == selectedNode) continue;
-            explanation += " " + getForcedMovesExplanation(wantedNode, moveToString(wantedNode.getMoveFromParent()), 1);
-        }
+        // for (Node wantedNode : root.getChildren()) {
+        //     if (wantedNode == selectedNode) continue;
+        //     explanation += " " + getForcedMovesExplanation(wantedNode, moveToString(wantedNode.getMoveFromParent()),
+        // 1);
+        // }
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
         return explanation.replaceAll("\\s{2,}", " ");

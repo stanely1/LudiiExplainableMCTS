@@ -145,7 +145,7 @@ public class ExplainableMcts extends AI {
         }
 
         this.lastSelectedNode = root.select(this.finalMoveSelectionPolicy);
-        this.lastMoveValue = lastSelectedNode.getScoreSum(this.player) / lastSelectedNode.getVisitCount();
+        this.lastMoveValue = lastSelectedNode.getAverageScore(this.player);
         final Move selectedMove = lastSelectedNode.getMoveFromParent();
 
         final String explanation = generateExplanation();
@@ -154,7 +154,7 @@ public class ExplainableMcts extends AI {
                 "[%s] Performed %d iterations. Previous turn score: %.4f.\n%s\n",
                 friendlyName, numIterations, prevTurnScore, explanation);
 
-        this.prevTurnScore = root.getScoreSum(this.player) / root.getVisitCount();
+        this.prevTurnScore = root.getAverageScore(this.player);
         return selectedMove;
     }
 

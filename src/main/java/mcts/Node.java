@@ -108,6 +108,10 @@ public class Node {
         return stats == null ? 0.0 : stats.scoreSums[player];
     }
 
+    public double getAverageScore(final int player) {
+        return scoreSums[player] / visitCount;
+    }
+
     public double getPessimisticScore(final int player) {
         return pessimisticScores[player];
     }

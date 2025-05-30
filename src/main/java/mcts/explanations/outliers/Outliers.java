@@ -5,6 +5,9 @@ import java.util.function.Function;
 import mcts.Node;
 
 public class Outliers {
+    // ---------------------------------------------------------------------------------------------------------
+    // all nodes sorted in descending order by the score
+    private final List<Node> sortedNodes;
 
     // ---------------------------------------------------------------------------------------------------------
     // score relative to selected node
@@ -37,9 +40,11 @@ public class Outliers {
     public Outliers(
             Node root, Node selectedNode, Function<Node, Double> nodeRankFunction, OutliersThresholds thresholds) {
         double selectedRank = nodeRankFunction.apply(selectedNode);
-        List<Node> children = root.getChildren();
+        sortedNodes = root.getChildren().stream()
+                .sorted((x, y) -> Double.compare(nodeRankFunction.apply(y), nodeRankFunction.apply(x)))
+                .toList();
 
-        for (Node c : children) {
+        for (Node c : sortedNodes) {
             double tempRank = nodeRankFunction.apply(c);
 
             // populate relative lists
@@ -95,6 +100,10 @@ public class Outliers {
         outliersMap.put("very bad", veryBadNodes);
         outliersMap.put("good", goodNodes);
         outliersMap.put("very good", veryGoodNodes);
+    }
+
+    public List<Node> getSortedNodes() {
+        return sortedNodes;
     }
 
     public Map<String, List<Node>> getOutliersMap() {
