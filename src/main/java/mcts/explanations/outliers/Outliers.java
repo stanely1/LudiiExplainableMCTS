@@ -102,6 +102,7 @@ public class Outliers {
         outliersMap.put("very good", veryGoodNodes);
     }
 
+    // ---------------------------------------------------------------------------------------------------------
     public List<Node> getSortedNodes() {
         return sortedNodes;
     }
@@ -112,6 +113,14 @@ public class Outliers {
 
     public List<Node> get(String category) {
         return outliersMap.getOrDefault(category, Collections.emptyList());
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    public List<String> getNodeCategories(final Node node) {
+        return outliersMap.entrySet().stream()
+                .filter(e -> e.getValue().contains(node))
+                .map(Map.Entry::getKey)
+                .toList();
     }
 
     // ---------------------------------------------------------------------------------------------------------

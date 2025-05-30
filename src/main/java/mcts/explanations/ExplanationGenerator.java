@@ -272,6 +272,45 @@ public class ExplanationGenerator {
             }
         }
 
+        // node not solved but we have (upper/lower) score bound = 0
+        if (!root.isSolved(player)) {
+            if (root.getPessimisticScore(player) == 0) {
+                explanation += "\nIn this position, it is impossible to lose; the worst achievable result is a draw.\n";
+            } else if (root.getOptimisticScore(player) == 0) {
+                explanation += "\nIn this position, it is impossible to win; the best achievable result is a draw.\n";
+            }
+        }
+
+        // All other moves are proved lost.
+        var provenBadNodes = new ForcedMoves(root, selectedNode, finalMoveSelectionPolicy, 1)
+                .getNodeStats()
+                .get(0)
+                .provenBadNodes();
+        var remainingNodes =
+                sortedAvgNodes.stream().filter(x -> !provenBadNodes.contains(x)).toList();
+        var selectedNodeCategory = avgOutliers.getNodeCategories(selectedNode).stream()
+                .filter(x -> !x.equals("equal"))
+                .toList()
+                .get(0);
+
+        if (provenBadNodes.size() > moveCount * 62 / 100) {
+            if (remainingNodes.size() == 1) {
+                explanation += "All but one of available moves are proven lost. ";
+                explanation += String.format(
+                        "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%)",
+                        moveToString(selectedMove),
+                        selectedNodeCategory,
+                        scoreToProbability(selectedNode.getAverageScore(player)));
+            } else {
+                explanation += String.format("All but %d of available moves are proven lost", remainingNodes.size());
+                explanation += String.format(
+                        "Among the remaining ones %s is the best, and leads to a %s position (estimated win probability is %.2f%%)",
+                        moveToString(selectedMove),
+                        selectedNodeCategory,
+                        scoreToProbability(selectedNode.getAverageScore(player)));
+            }
+        }
+
         // TODO: use PNS?
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
