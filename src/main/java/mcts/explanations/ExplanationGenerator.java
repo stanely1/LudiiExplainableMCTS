@@ -148,6 +148,11 @@ public class ExplanationGenerator {
         final var worstAvgNode = sortedAvgNodes.get(sortedAvgNodes.size() - 1);
         final var bestAvgNode = sortedAvgNodes.get(0);
 
+        // print selected move
+        if (!isSolved) {
+            explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
+        }
+
         // worst node is at least good
         if (!isSolved
                 && (avgOutliers.getGoodNodes().contains(worstAvgNode)
@@ -166,7 +171,6 @@ public class ExplanationGenerator {
         }
         // general position info
         else if (!isSolved) {
-            explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
             explanation += String.format(
                     "Our position is %s (estimated win probability: %.2f%%).\n",
                     absSelectedScore < 0.1
