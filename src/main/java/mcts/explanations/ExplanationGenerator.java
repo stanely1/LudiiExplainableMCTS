@@ -450,6 +450,7 @@ public class ExplanationGenerator {
         };
         var tempOUTLIERS_1 = new Outliers(root, selectedNode, getNstEval_1);
 
+        // some very good moves (not much of them)
         var veryGoodNodes = tempOUTLIERS_1.getVeryGoodNodes();
         if (!veryGoodNodes.isEmpty()
                 && veryGoodNodes.size() < root.getChildren().size() / 7) {
@@ -469,6 +470,24 @@ public class ExplanationGenerator {
             }
         }
 
+        // some much better than selected
+        var muchBetterNodes = tempOUTLIERS_1.getMuchBetterNodes();
+        if (!muchBetterNodes.isEmpty()) {
+            if (muchBetterNodes.size() == 1) {
+                explanations.add(String.format(
+                        "One move (%s) is significantly better (%.2f%% better) than the selected one according to the MAST metric.",
+                        moveToString(muchBetterNodes.getLast().getMoveFromParent()),
+                        scoreToProbability(getNstEval_1.apply(muchBetterNodes.getLast()))
+                                - scoreToProbability(getNstEval_1.apply(selectedNode))));
+            } else {
+                explanations.add(String.format(
+                        "%d moves are significantly better (at least %.2f%% better) than the selected one according to the MAST metric.",
+                        muchBetterNodes.size(),
+                        scoreToProbability(getNstEval_1.apply(muchBetterNodes.getLast()))
+                                - scoreToProbability(getNstEval_1.apply(selectedNode))));
+            }
+        }
+
         explanations.add("\n");
         // ---------------------------------------------------------------------------------------------------------------------------------------------------
         // ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -485,6 +504,7 @@ public class ExplanationGenerator {
         };
         var tempOUTLIERS_2 = new Outliers(root, selectedNode, getNstEval_2);
 
+        // some very good moves (not much of them)
         veryGoodNodes = tempOUTLIERS_2.getVeryGoodNodes();
         if (!veryGoodNodes.isEmpty()
                 && veryGoodNodes.size() < root.getChildren().size() / 7) {
@@ -501,6 +521,24 @@ public class ExplanationGenerator {
                         veryGoodNodes.size(),
                         veryGoodNodes.contains(selectedNode) ? "" : "not",
                         scoreToProbability(getNstEval_2.apply(veryGoodNodes.getLast()))));
+            }
+        }
+
+        // some much better than selected
+        muchBetterNodes = tempOUTLIERS_2.getMuchBetterNodes();
+        if (!muchBetterNodes.isEmpty()) {
+            if (muchBetterNodes.size() == 1) {
+                explanations.add(String.format(
+                        "One move (%s) is significantly better (%.2f%% better) than the selected one according to the NST(2) metric.",
+                        moveToString(muchBetterNodes.getLast().getMoveFromParent()),
+                        scoreToProbability(getNstEval_2.apply(muchBetterNodes.getLast()))
+                                - scoreToProbability(getNstEval_2.apply(selectedNode))));
+            } else {
+                explanations.add(String.format(
+                        "%d moves are significantly better (at least %.2f%% better) than the selected one according to the NST(2) metric.",
+                        muchBetterNodes.size(),
+                        scoreToProbability(getNstEval_2.apply(muchBetterNodes.getLast()))
+                                - scoreToProbability(getNstEval_2.apply(selectedNode))));
             }
         }
 
