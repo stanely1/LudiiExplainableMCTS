@@ -55,7 +55,7 @@ public class ExplanationGenerator {
     public String generateExplanation() {
         // serialize tree nodes
         // String explanation = String.format("Root: %s\n", serializeNode(root));
-        String explanation = String.format("Selected node: %s\n", serializeNode(selectedNode));
+        String explanation = String.format("Selected node:\n%s\n", serializeNode(selectedNode));
         if (root.getChildren().size() > 1) {
             explanation += "Other nodes:\n";
             for (final var node : root.getChildren()) {
@@ -397,12 +397,13 @@ public class ExplanationGenerator {
             if (remainingNodes.size() == 1) {
                 explanation += "All but one of available moves are proven defeat. ";
                 explanation += String.format(
-                        "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%)",
+                        "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%). ",
                         moveToString(selectedMove), selectedNodeCategory, selectedProbability);
             } else {
-                explanation += String.format("All but %d of available moves are proven defeat", remainingNodes.size());
+                explanation +=
+                        String.format("All but %d of available moves are proven defeat. ", remainingNodes.size());
                 explanation += String.format(
-                        "Among the remaining ones %s is the best, and leads to a %s position (estimated win probability is %.2f%%)",
+                        "Among the remaining ones %s is the best, and leads to a %s position (estimated win probability is %.2f%%). ",
                         moveToString(selectedMove), selectedNodeCategory, selectedProbability);
             }
         }
@@ -429,7 +430,81 @@ public class ExplanationGenerator {
         // }
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
+
+        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
+            explanation += String.join(" ", getNST_X());
+        }
+
         return explanation.replaceAll("\\s{2,}", " ");
+    }
+
+    private List<String> getNST_X() {
+        List<String> explanations = new ArrayList<>();
+
+        // length = 1
+        Function<Node, Double> getNstEval_1 = _node -> {
+            final var ngram = new Move[1];
+            ngram[0] = _node.getMoveFromParent();
+            final var aStats = globalNGramStats.get(new NGramMoveKey(ngram, 0));
+            return aStats.scoreSums[player] / aStats.visitCount;
+        };
+        var tempOUTLIERS_1 = new Outliers(root, selectedNode, getNstEval_1);
+
+        var veryGoodNodes = tempOUTLIERS_1.getVeryGoodNodes();
+        if (!veryGoodNodes.isEmpty()
+                && veryGoodNodes.size() < root.getChildren().size() / 7) {
+            if (veryGoodNodes.size() == 1) {
+                explanations.add(String.format(
+                        "One move (%s) is significantly better (at least %.2f%%) than the rest according to the MAST metric.",
+                        veryGoodNodes.contains(selectedNode)
+                                ? "the selected one"
+                                : moveToString(veryGoodNodes.getLast().getMoveFromParent()),
+                        scoreToProbability(getNstEval_1.apply(veryGoodNodes.getLast()))));
+            } else {
+                explanations.add(String.format(
+                        "%d moves (%s including the selected one) are significantly better (at least %.2f%%) than the rest according to the MAST metric.",
+                        veryGoodNodes.size(),
+                        veryGoodNodes.contains(selectedNode) ? "" : "not",
+                        scoreToProbability(getNstEval_1.apply(veryGoodNodes.getLast()))));
+            }
+        }
+
+        explanations.add("\n");
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------
+        // ---------------------------------------------------------------------------------------------------------------------------------------------------
+
+        // length = 2
+        final var prevMove = root.getContext().trial().lastMove();
+        Function<Node, Double> getNstEval_2 = _node -> {
+            final var ngram = new Move[2];
+            ngram[0] = prevMove;
+            ngram[1] = _node.getMoveFromParent();
+            final var aStats = globalNGramStats.get(new NGramMoveKey(ngram, 0));
+            return aStats.scoreSums[player] / aStats.visitCount;
+        };
+        var tempOUTLIERS_2 = new Outliers(root, selectedNode, getNstEval_2);
+
+        veryGoodNodes = tempOUTLIERS_2.getVeryGoodNodes();
+        if (!veryGoodNodes.isEmpty()
+                && veryGoodNodes.size() < root.getChildren().size() / 7) {
+            if (veryGoodNodes.size() == 1) {
+                explanations.add(String.format(
+                        "One move (%s) is significantly better (at least %.2f%%) than the rest according to the NST(2) metric.",
+                        veryGoodNodes.contains(selectedNode)
+                                ? "the selected one"
+                                : moveToString(veryGoodNodes.getLast().getMoveFromParent()),
+                        scoreToProbability(getNstEval_2.apply(veryGoodNodes.getLast()))));
+            } else {
+                explanations.add(String.format(
+                        "%d moves (%s including the selected one) are significantly better (at least %.2f%%) than the rest according to the NST(2) metric.",
+                        veryGoodNodes.size(),
+                        veryGoodNodes.contains(selectedNode) ? "" : "not",
+                        scoreToProbability(getNstEval_2.apply(veryGoodNodes.getLast()))));
+            }
+        }
+
+        return explanations;
     }
 
     private String moveToString(final Move move) {
@@ -635,7 +710,7 @@ public class ExplanationGenerator {
     }
 
     private String nstExplanation() {
-        String explanation = "";
+        String explanation = "NST\n";
 
         final List<Move> reverseActionSequence = new ArrayList<>();
         reverseActionSequence.add(selectedMove);
