@@ -499,6 +499,10 @@ public class ExplanationGenerator {
 
         // length = 2
         final var prevMove = root.getContext().trial().lastMove();
+        if (prevMove == null) {
+            return explanations;
+        }
+
         Function<Node, Double> getNstEval_2 = _node -> {
             final var ngram = new Move[2];
             ngram[0] = prevMove;
