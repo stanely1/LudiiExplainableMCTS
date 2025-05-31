@@ -40,8 +40,21 @@ public class Outliers {
     public Outliers(
             Node root, Node selectedNode, Function<Node, Double> nodeRankFunction, OutliersThresholds thresholds) {
         double selectedRank = nodeRankFunction.apply(selectedNode);
+
         sortedNodes = root.getChildren().stream()
-                .sorted((x, y) -> Double.compare(nodeRankFunction.apply(y), nodeRankFunction.apply(x)))
+                .sorted((x, y) -> {
+                    final var cmp = Double.compare(nodeRankFunction.apply(y), nodeRankFunction.apply(x));
+                    if (cmp == 0) {
+                        final var player = root.getPlayer();
+                        if (x.isWin(player) || y.isLoss(player)) {
+                            return -1;
+                        }
+                        if (x.isLoss(player) || y.isWin(player)) {
+                            return 1;
+                        }
+                    }
+                    return cmp;
+                })
                 .toList();
 
         for (Node c : sortedNodes) {
