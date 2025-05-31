@@ -332,7 +332,7 @@ public class ExplanationGenerator {
                     moveToString(selectedMove), selectedProbability);
             if (betterCount == 1) {
                 explanation += String.format(
-                        "There is one move (%s) with higher win probability, which is better by %.2f%%). ",
+                        "There is one move (%s) with higher win probability, which is better by %.2f%%. ",
                         moveToString(bestAvgMove), scoreDiff);
             } else {
                 explanation += String.format(
@@ -400,15 +400,29 @@ public class ExplanationGenerator {
         if (provenBadNodes.size() > moveCount * 62 / 100 && !remainingNodes.isEmpty()) {
             if (remainingNodes.size() == 1) {
                 explanation += "All but one of available moves are proven defeat. ";
-                explanation += String.format(
-                        "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%). ",
-                        moveToString(selectedMove), selectedNodeCategory, selectedProbability);
+                if (isSolved) {
+                    explanation += String.format(
+                            "The remaining one (%s) leads to a proven %s. ",
+                            moveToString(selectedMove),
+                            selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw");
+                } else {
+                    explanation += String.format(
+                            "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%). ",
+                            moveToString(selectedMove), selectedNodeCategory, selectedProbability);
+                }
             } else {
                 explanation +=
                         String.format("All but %d of available moves are proven defeat. ", remainingNodes.size());
-                explanation += String.format(
-                        "Among the remaining ones %s is the best, and leads to a %s position (estimated win probability is %.2f%%). ",
-                        moveToString(selectedMove), selectedNodeCategory, selectedProbability);
+                if (isSolved) {
+                    explanation += String.format(
+                            "Among the remaining ones, %s is the best, and leads to a proven %s. ",
+                            moveToString(selectedMove),
+                            selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw");
+                } else {
+                    explanation += String.format(
+                            "Among the remaining ones, %s is the best, and leads to a %s position (estimated win probability is %.2f%%). ",
+                            moveToString(selectedMove), selectedNodeCategory, selectedProbability);
+                }
             }
         }
 
