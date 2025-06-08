@@ -385,112 +385,83 @@ public class ExplanationGenerator {
     private List<String> getNST_X() {
         List<String> explanations = new ArrayList<>();
 
-        // length = 1
-        Function<Node, Double> getNstEval_1 = _node -> {
-            final var ngram = new Move[1];
-            ngram[0] = _node.getMoveFromParent();
-            final var aStats = globalNGramStats.get(new NGramMoveKey(ngram, 0));
-            return aStats.scoreSums[player] / aStats.visitCount;
-        };
-        var tempOUTLIERS_1 = new Outliers(root, selectedNode, getNstEval_1);
+        final var moveHistoryLength =
+                selectedNode.getContext().trial().generateCompleteMovesList().size();
 
-        // some very good moves (not much of them)
-        var veryGoodNodes = tempOUTLIERS_1.getVeryGoodNodes();
-        if (!veryGoodNodes.isEmpty()
-                && veryGoodNodes.size() < root.getChildren().size() / 7) {
-            if (veryGoodNodes.size() == 1) {
-                explanations.add(String.format(
-                        "One move (%s) is significantly better (at least %.2f%%) than the rest according to the MAST metric.",
-                        veryGoodNodes.contains(selectedNode)
-                                ? "the selected one"
-                                : moveToString(veryGoodNodes.getLast().getMoveFromParent()),
-                        scoreToProbability(getNstEval_1.apply(veryGoodNodes.getLast()))));
-            } else {
-                explanations.add(String.format(
-                        "%d moves (%s including the selected one) are significantly better (at least %.2f%%) than the rest according to the MAST metric.",
-                        veryGoodNodes.size(),
-                        veryGoodNodes.contains(selectedNode) ? "" : "not",
-                        scoreToProbability(getNstEval_1.apply(veryGoodNodes.getLast()))));
-            }
-        }
-
-        // some much better than selected
-        var muchBetterNodes = tempOUTLIERS_1.getMuchBetterNodes();
-        if (!muchBetterNodes.isEmpty()) {
-            if (muchBetterNodes.size() == 1) {
-                explanations.add(String.format(
-                        "One move (%s) is significantly better (%.2f%% better) than the selected one according to the MAST metric.",
-                        moveToString(muchBetterNodes.getLast().getMoveFromParent()),
-                        scoreToProbability(getNstEval_1.apply(muchBetterNodes.getLast()))
-                                - scoreToProbability(getNstEval_1.apply(selectedNode))));
-            } else {
-                explanations.add(String.format(
-                        "%d moves are significantly better (at least %.2f%% better) than the selected one according to the MAST metric.",
-                        muchBetterNodes.size(),
-                        scoreToProbability(getNstEval_1.apply(muchBetterNodes.getLast()))
-                                - scoreToProbability(getNstEval_1.apply(selectedNode))));
-            }
-        }
-
-        explanations.add("\n");
-        // ---------------------------------------------------------------------------------------------------------------------------------------------------
-        // ---------------------------------------------------------------------------------------------------------------------------------------------------
-        // ---------------------------------------------------------------------------------------------------------------------------------------------------
-
-        // length = 2
-        final var prevMove = root.getContext().trial().lastMove();
-        if (prevMove == null) {
-            return explanations;
-        }
-
-        Function<Node, Double> getNstEval_2 = _node -> {
-            final var ngram = new Move[2];
-            ngram[0] = prevMove;
-            ngram[1] = _node.getMoveFromParent();
-            final var aStats = globalNGramStats.get(new NGramMoveKey(ngram, 0));
-            return aStats.scoreSums[player] / aStats.visitCount;
-        };
-        var tempOUTLIERS_2 = new Outliers(root, selectedNode, getNstEval_2);
-
-        // some very good moves (not much of them)
-        veryGoodNodes = tempOUTLIERS_2.getVeryGoodNodes();
-        if (!veryGoodNodes.isEmpty()
-                && veryGoodNodes.size() < root.getChildren().size() / 7) {
-            if (veryGoodNodes.size() == 1) {
-                explanations.add(String.format(
-                        "One move (%s) is significantly better (at least %.2f%%) than the rest according to the NST(2) metric.",
-                        veryGoodNodes.contains(selectedNode)
-                                ? "the selected one"
-                                : moveToString(veryGoodNodes.getLast().getMoveFromParent()),
-                        scoreToProbability(getNstEval_2.apply(veryGoodNodes.getLast()))));
-            } else {
-                explanations.add(String.format(
-                        "%d moves (%s including the selected one) are significantly better (at least %.2f%%) than the rest according to the NST(2) metric.",
-                        veryGoodNodes.size(),
-                        veryGoodNodes.contains(selectedNode) ? "" : "not",
-                        scoreToProbability(getNstEval_2.apply(veryGoodNodes.getLast()))));
-            }
-        }
-
-        // some much better than selected
-        muchBetterNodes = tempOUTLIERS_2.getMuchBetterNodes();
-        if (!muchBetterNodes.isEmpty()) {
-            if (muchBetterNodes.size() == 1) {
-                explanations.add(String.format(
-                        "One move (%s) is significantly better (%.2f%% better) than the selected one according to the NST(2) metric.",
-                        moveToString(muchBetterNodes.getLast().getMoveFromParent()),
-                        scoreToProbability(getNstEval_2.apply(muchBetterNodes.getLast()))
-                                - scoreToProbability(getNstEval_2.apply(selectedNode))));
-            } else {
-                explanations.add(String.format(
-                        "%d moves are significantly better (at least %.2f%% better) than the selected one according to the NST(2) metric.",
-                        muchBetterNodes.size(),
-                        scoreToProbability(getNstEval_2.apply(muchBetterNodes.getLast()))
-                                - scoreToProbability(getNstEval_2.apply(selectedNode))));
-            }
+        for (var i = 1; i <= Math.min(maxNGramLength, moveHistoryLength); i++) {
+            final var evalFunction = getNstEvalFunction(i);
+            final var metricName = i == 1 ? "MAST" : String.format("NST(%d)", i);
+            explanations.add(getPositiveOutliersExplanation(evalFunction, metricName));
+            explanations.add("\n");
         }
 
         return explanations;
+    }
+
+    private Function<Node, Double> getNstEvalFunction(final int nGramLength) {
+        return node -> {
+            final var nGram = new Move[nGramLength];
+            final var reverseTrialIterator = node.getContext().trial().reverseMoveIterator();
+
+            for (var i = nGramLength - 1; i >= 0; i--) {
+                nGram[i] = reverseTrialIterator.next();
+            }
+
+            final var aStats = globalNGramStats.get(new NGramMoveKey(nGram, 0));
+            return aStats.scoreSums[player] / aStats.visitCount;
+        };
+    }
+
+    private String getPositiveOutliersExplanation(final Function<Node, Double> evalFunction, final String metricName) {
+        List<String> explanations = new ArrayList<>();
+
+        final var outliers = new Outliers(root, selectedNode, evalFunction);
+
+        // some very good moves (not much of them)
+        final var veryGoodNodes = outliers.getVeryGoodNodes();
+        if (!veryGoodNodes.isEmpty()
+                && veryGoodNodes.size() < root.getChildren().size() / 7) {
+            // TODO: print probability diff over the other moves rather than absolute value -> (at least %.2f%% better)
+            // OR maybe "N moves have very high MAST value (at least X% win probability)" ???
+            if (veryGoodNodes.size() == 1) {
+                explanations.add(String.format(
+                        "One move (%s) is significantly better (at least %.2f%%) than the rest according to the %s metric.",
+                        veryGoodNodes.contains(selectedNode)
+                                ? "the selected one"
+                                : moveToString(veryGoodNodes.getLast().getMoveFromParent()),
+                        scoreToProbability(evalFunction.apply(veryGoodNodes.getLast())),
+                        metricName));
+            } else {
+                explanations.add(String.format(
+                        "%d moves (%sincluding the selected one) are significantly better (at least %.2f%%) than the rest according to the %s metric.",
+                        veryGoodNodes.size(),
+                        veryGoodNodes.contains(selectedNode) ? "" : "not ",
+                        scoreToProbability(evalFunction.apply(veryGoodNodes.getLast())),
+                        metricName));
+            }
+        }
+
+        // some much better than selected
+        final var muchBetterNodes = outliers.getMuchBetterNodes();
+        if (!muchBetterNodes.isEmpty()) {
+            if (muchBetterNodes.size() == 1) {
+                explanations.add(String.format(
+                        "One move (%s) is significantly better (%.2f%% better) than the selected one according to the %s metric.",
+                        moveToString(muchBetterNodes.getLast().getMoveFromParent()),
+                        scoreToProbability(evalFunction.apply(muchBetterNodes.getLast()))
+                                - scoreToProbability(evalFunction.apply(selectedNode)),
+                        metricName));
+            } else {
+                explanations.add(String.format(
+                        "%d moves are significantly better (at least %.2f%% better) than the selected one according to the %s metric.",
+                        muchBetterNodes.size(),
+                        scoreToProbability(evalFunction.apply(muchBetterNodes.getLast()))
+                                - scoreToProbability(evalFunction.apply(selectedNode)),
+                        metricName));
+            }
+        }
+
+        return String.join(" ", explanations);
     }
 
     private String moveToString(final Move move) {
@@ -587,47 +558,6 @@ public class ExplanationGenerator {
 
         nodeString += "}";
         return nodeString;
-    }
-
-    private String nstExplanation() {
-        String explanation = "NST\n";
-
-        final List<Move> reverseActionSequence = new ArrayList<>();
-        reverseActionSequence.add(selectedMove);
-        final var reverseTrialIterator = root.getContext().trial().reverseMoveIterator();
-
-        for (var n = 1; n <= maxNGramLength; n++) {
-            final var nGram = new Move[n];
-            for (var i = 0; i < n; i++) {
-                nGram[i] = reverseActionSequence.get(n - i - 1);
-            }
-            final var nGramKey = new NGramMoveKey(nGram, 0);
-
-            if (globalNGramStats.containsKey(nGramKey)) {
-                final var nGramStats = globalNGramStats.get(nGramKey);
-                if (nGramStats.scoreSums[this.player] / nGramStats.visitCount > 0.25) {
-                    explanation += " ";
-
-                    switch (n) {
-                        case 1 -> explanation += "This move generally performs well, regardless of when it is played.";
-                        case 2 -> explanation +=
-                                "This move generally performs well when played after the previous move.";
-                        default -> explanation += String.format(
-                                "This move generally performs well when played after a sequence of %d preceding moves.",
-                                n - 1);
-                    }
-                }
-            } else {
-                break;
-            }
-
-            if (!reverseTrialIterator.hasNext()) {
-                break;
-            }
-            reverseActionSequence.add(reverseTrialIterator.next());
-        }
-
-        return explanation;
     }
 
     private String getForcedMovesExplanation(Node wantedNode, String wantedNodeString, int startDepth) {
