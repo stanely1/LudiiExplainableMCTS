@@ -375,14 +375,29 @@ public class ExplanationGenerator {
 
         // -------------------------------------------------------------------------------------------------------------------------------------------
 
+        // MAST
+        if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
+            explanation += getMastExplanation();
+        }
+
+        // NST
         if ((backpropagationFlags & BackpropagationFlags.GLOBAL_NGRAM_ACTION_STATS) != 0) {
-            explanation += String.join(" ", getNST_X());
+            explanation += String.join(" ", getNstExplanations());
         }
 
         return explanation.replaceAll("\\s{2,}", " ");
     }
 
-    private List<String> getNST_X() {
+    private String getMastExplanation() {
+        final Function<Node, Double> evalFunction = node -> {
+            final var aStats = globalActionStats.get(new MoveKey(node.getMoveFromParent(), 0));
+            return aStats.scoreSums[player] / aStats.visitCount;
+        };
+
+        return getPositiveOutliersExplanation(evalFunction, "MAST");
+    }
+
+    private List<String> getNstExplanations() {
         List<String> explanations = new ArrayList<>();
 
         final var moveHistoryLength =
