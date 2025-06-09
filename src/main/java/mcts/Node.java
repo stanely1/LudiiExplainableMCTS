@@ -187,8 +187,19 @@ public class Node {
                 bestValue = childValue;
                 bestChild = childNode;
                 numBestFound = 1;
-            } else if (childValue == bestValue && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
-                bestChild = childNode;
+            } else if (childValue == bestValue) {
+                final var childAvg = childNode.getAverageScore(getPlayer());
+                final var bestAvg =
+                        bestChild == null ? Double.NEGATIVE_INFINITY : bestChild.getAverageScore(getPlayer());
+
+                // Tie-Breaker - better average score
+                // TODO: think if it should be added as a method in SelectionPolicy instead of coding it here
+                if (childAvg > bestAvg) {
+                    bestChild = childNode;
+                    numBestFound = 1;
+                } else if (childAvg == bestAvg && ThreadLocalRandom.current().nextInt() % ++numBestFound == 0) {
+                    bestChild = childNode;
+                }
             }
         }
         return bestChild;
