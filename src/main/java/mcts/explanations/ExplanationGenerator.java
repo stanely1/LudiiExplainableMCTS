@@ -72,116 +72,24 @@ public class ExplanationGenerator {
         final var avgOutliers = new Outliers(root, selectedNode, getNodeAverageEval);
 
         final double selectedScore = getNodeAverageEval.apply(selectedNode);
-        final double absSelectedScore = Math.abs(selectedScore);
         final double selectedProbability = scoreToProbability(selectedScore);
 
-        final boolean isSolved = selectedNode.isSolved(player);
-
-        // general info on available moves
-        // -------------------------------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------------------
-        List<String> moveCategoryStrings = new ArrayList<>();
-        if (!avgOutliers.getVeryGoodNodes().isEmpty()) {
-            String s;
-            final var veryGoodWorstNode = avgOutliers.getVeryGoodNodes().getLast();
-            final var veryGoodWorstProbability = scoreToProbability(getNodeAverageEval.apply(veryGoodWorstNode));
-            if (veryGoodWorstProbability == 100.0) {
-                s = String.format("%s win", veryGoodWorstNode.isWin(player) ? "proven" : "highly likely");
-            } else {
-                s = String.format("above %.2f%%", veryGoodWorstProbability);
-            }
-
-            moveCategoryStrings.add(String.format(
-                    "%d with decisive advantage (%s)",
-                    avgOutliers.getVeryGoodNodes().size(), s));
-        }
-        // -------------------------------------------------------------------------------------------------------------------------
-        if (!avgOutliers.getGoodNodes().isEmpty()) {
-            moveCategoryStrings.add(String.format(
-                    "%d with slight advantage (above %.2f%%)",
-                    avgOutliers.getGoodNodes().size(),
-                    scoreToProbability(
-                            getNodeAverageEval.apply(avgOutliers.getGoodNodes().getLast()))));
-        }
-        // -------------------------------------------------------------------------------------------------------------------------
-        if (!avgOutliers.getNeutralNodes().isEmpty()) {
-            moveCategoryStrings.add(String.format(
-                    "%d balanced (~50%%)", avgOutliers.getNeutralNodes().size()));
-        }
-        // -------------------------------------------------------------------------------------------------------------------------
-        if (!avgOutliers.getBadNodes().isEmpty()) {
-            moveCategoryStrings.add(String.format(
-                    "%d with slight disadvantage (below %.2f%%)",
-                    avgOutliers.getBadNodes().size(),
-                    scoreToProbability(
-                            getNodeAverageEval.apply(avgOutliers.getBadNodes().getFirst()))));
-        }
-        // -------------------------------------------------------------------------------------------------------------------------
-        if (!avgOutliers.getVeryBadNodes().isEmpty()) {
-            String s;
-            final var veryBadBestNode = avgOutliers.getVeryBadNodes().get(0);
-            final var veryBadBestProbability = scoreToProbability(getNodeAverageEval.apply(veryBadBestNode));
-            if (veryBadBestProbability == 0.0) {
-                s = String.format("%s loss", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
-            } else {
-                s = String.format("below %.2f%%", veryBadBestProbability);
-            }
-
-            moveCategoryStrings.add(String.format(
-                    "%d with decisive disadvantage (%s)",
-                    avgOutliers.getVeryBadNodes().size(), s));
-        }
-        // -------------------------------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------------------
-
-        final int moveCount = root.getChildren().size();
-        explanation += String.format(
-                "There %s %d move%s available: %s.\n",
-                moveCount == 1 ? "is" : "are",
-                moveCount,
-                moveCount == 1 ? "" : "s",
-                String.join(", ", moveCategoryStrings));
-
         final var sortedAvgNodes = avgOutliers.getSortedNodes();
-        final var worstAvgNode = sortedAvgNodes.get(sortedAvgNodes.size() - 1);
         final var bestAvgNode = sortedAvgNodes.get(0);
 
-        // print selected move
+        final int moveCount = root.getChildren().size();
+        final boolean isSolved = selectedNode.isSolved(player);
+
+        // General info on available moves
+        explanation += getGeneralInfoOnAvailableMoves(avgOutliers, getNodeAverageEval);
+
         if (!isSolved) {
+            // Selected move and general position info
             explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
-        }
-
-        // worst node is at least good
-        if (!isSolved
-                && (avgOutliers.getGoodNodes().contains(worstAvgNode)
-                        || avgOutliers.getVeryGoodNodes().contains(worstAvgNode))) {
-            explanation += String.format(
-                    "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
-                    scoreToProbability(getNodeAverageEval.apply(worstAvgNode)));
-        }
-        // best node is at most bad
-        else if (!isSolved
-                && (avgOutliers.getBadNodes().contains(bestAvgNode)
-                        || avgOutliers.getVeryBadNodes().contains(bestAvgNode))) {
-            explanation += String.format(
-                    "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
-                    scoreToProbability(getNodeAverageEval.apply(bestAvgNode)));
-        }
-        // general position info
-        else if (!isSolved) {
-            explanation += String.format(
-                    "Our position is %s (estimated win probability: %.2f%%).\n",
-                    absSelectedScore < 0.1
-                            ? "balanced"
-                            : String.format(
-                                    "%s %sadvantageous",
-                                    absSelectedScore < 0.4 ? "slightly" : "strongly", selectedScore < 0 ? "dis" : ""),
-                    selectedProbability);
-        }
-
-        if (isSolved) {
+            explanation += getGeneralPositionInfo(avgOutliers, getNodeAverageEval);
+            explanation += getScoreChangeOverPrevTurnInfo(selectedProbability);
+        } else {
+            // Solver explanation
             final var pv = getPV(selectedNode);
             String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
 
@@ -202,18 +110,6 @@ public class ExplanationGenerator {
             } else {
                 explanation += String.format("in %d turns.\n", pv.size());
             }
-        }
-
-        final double prevProbability = scoreToProbability(prevTurnScore);
-        final double scoreProbabilityChange = Math.abs(selectedProbability - prevProbability);
-
-        // score change over previous turn
-        if (scoreProbabilityChange > 10.0 && !isSolved) {
-            explanation += String.format(
-                    "The overall estimation of our position %s over the previous turn (%.2f%% %s win probability).\n",
-                    selectedProbability > prevProbability ? "improved" : "degraded",
-                    scoreProbabilityChange,
-                    selectedProbability > prevProbability ? "increased" : "decreased");
         }
 
         // there are moves significantly worse that are in fact very bad
@@ -386,6 +282,124 @@ public class ExplanationGenerator {
         }
 
         return explanation.replaceAll("\\s{2,}", " ");
+    }
+
+    private String getGeneralInfoOnAvailableMoves(
+            final Outliers outliers, final Function<Node, Double> nodeEvalFunction) {
+        List<String> moveCategoryStrings = new ArrayList<>();
+
+        // Moves with decisive advantage
+        if (!outliers.getVeryGoodNodes().isEmpty()) {
+            String s;
+            final var veryGoodWorstNode = outliers.getVeryGoodNodes().getLast();
+            final var veryGoodWorstProbability = scoreToProbability(nodeEvalFunction.apply(veryGoodWorstNode));
+            if (veryGoodWorstProbability == 100.0) {
+                s = String.format("%s win", veryGoodWorstNode.isWin(player) ? "proven" : "highly likely");
+            } else {
+                s = String.format("above %.2f%%", veryGoodWorstProbability);
+            }
+
+            moveCategoryStrings.add(String.format(
+                    "%d with decisive advantage (%s)",
+                    outliers.getVeryGoodNodes().size(), s));
+        }
+        // Moves with slight advantage
+        if (!outliers.getGoodNodes().isEmpty()) {
+            moveCategoryStrings.add(String.format(
+                    "%d with slight advantage (above %.2f%%)",
+                    outliers.getGoodNodes().size(),
+                    scoreToProbability(
+                            nodeEvalFunction.apply(outliers.getGoodNodes().getLast()))));
+        }
+        // Balanced moves
+        if (!outliers.getNeutralNodes().isEmpty()) {
+            moveCategoryStrings.add(String.format(
+                    "%d balanced (~50%%)", outliers.getNeutralNodes().size()));
+        }
+        // Moves with slight disadvantage
+        if (!outliers.getBadNodes().isEmpty()) {
+            moveCategoryStrings.add(String.format(
+                    "%d with slight disadvantage (below %.2f%%)",
+                    outliers.getBadNodes().size(),
+                    scoreToProbability(
+                            nodeEvalFunction.apply(outliers.getBadNodes().getFirst()))));
+        }
+        // Moves with decisive disadvantage
+        if (!outliers.getVeryBadNodes().isEmpty()) {
+            String s;
+            final var veryBadBestNode = outliers.getVeryBadNodes().get(0);
+            final var veryBadBestProbability = scoreToProbability(nodeEvalFunction.apply(veryBadBestNode));
+            if (veryBadBestProbability == 0.0) {
+                s = String.format("%s loss", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
+            } else {
+                s = String.format("below %.2f%%", veryBadBestProbability);
+            }
+
+            moveCategoryStrings.add(String.format(
+                    "%d with decisive disadvantage (%s)",
+                    outliers.getVeryBadNodes().size(), s));
+        }
+
+        // Summary
+        final int moveCount = root.getChildren().size();
+        return String.format(
+                "There %s %d move%s available: %s.\n",
+                moveCount == 1 ? "is" : "are",
+                moveCount,
+                moveCount == 1 ? "" : "s",
+                String.join(", ", moveCategoryStrings));
+    }
+
+    private String getGeneralPositionInfo(final Outliers outliers, final Function<Node, Double> nodeEvalFunction) {
+        final var sortedNodes = outliers.getSortedNodes();
+        final var worstNode = sortedNodes.get(sortedNodes.size() - 1);
+        final var bestNode = sortedNodes.get(0);
+
+        // worst node is at least good
+        if (outliers.getGoodNodes().contains(worstNode)
+                || outliers.getVeryGoodNodes().contains(worstNode)) {
+            // TODO: if probablility == 100%, print "highly likely a win"
+            return String.format(
+                    "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
+                    scoreToProbability(nodeEvalFunction.apply(worstNode)));
+        }
+        // best node is at most bad
+        else if (outliers.getBadNodes().contains(bestNode)
+                || outliers.getVeryBadNodes().contains(bestNode)) {
+            // TODO: if probablility == 0%, print "highly likely a loss"
+            return String.format(
+                    "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
+                    scoreToProbability(nodeEvalFunction.apply(bestNode)));
+        }
+        // general position info
+        else {
+            final double selectedScore = nodeEvalFunction.apply(selectedNode);
+            final double absSelectedScore = Math.abs(selectedScore);
+            final double selectedProbability = scoreToProbability(selectedScore);
+
+            return String.format(
+                    "Our position is %s (estimated win probability: %.2f%%).\n",
+                    absSelectedScore < 0.1
+                            ? "balanced"
+                            : String.format(
+                                    "%s %sadvantageous",
+                                    absSelectedScore < 0.4 ? "slightly" : "strongly", selectedScore < 0 ? "dis" : ""),
+                    selectedProbability);
+        }
+    }
+
+    private String getScoreChangeOverPrevTurnInfo(final double selectedProbability) {
+        final double prevProbability = scoreToProbability(prevTurnScore);
+        final double scoreProbabilityChange = Math.abs(selectedProbability - prevProbability);
+
+        if (scoreProbabilityChange > 10.0) {
+            return String.format(
+                    "The overall estimation of our position %s over the previous turn (%.2f%% %s win probability).\n",
+                    selectedProbability > prevProbability ? "improved" : "degraded",
+                    scoreProbabilityChange,
+                    selectedProbability > prevProbability ? "increased" : "decreased");
+        }
+        return "";
     }
 
     private String getMastExplanation() {
