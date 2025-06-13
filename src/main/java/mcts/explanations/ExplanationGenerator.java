@@ -75,7 +75,6 @@ public class ExplanationGenerator {
         final double selectedProbability = scoreToProbability(selectedScore);
 
         final var sortedAvgNodes = avgOutliers.getSortedNodes();
-        final var bestAvgNode = sortedAvgNodes.get(0);
 
         final int moveCount = root.getChildren().size();
         final boolean isSolved = selectedNode.isSolved(player);
@@ -83,160 +82,48 @@ public class ExplanationGenerator {
         // General info on available moves
         explanation += getGeneralInfoOnAvailableMoves(avgOutliers, getNodeAverageEval);
 
-        if (!isSolved) {
+        if (isSolved) {
+            explanation += getSolverExplanation();
+        } else {
             // Selected move and general position info
             explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
             explanation += getGeneralPositionInfo(avgOutliers, getNodeAverageEval);
             explanation += getScoreChangeOverPrevTurnInfo(selectedProbability);
-        } else {
-            // Solver explanation
-            final var pv = getPV(selectedNode);
-            String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
-
-            explanation +=
-                    String.format("Selected move, %s, leads to a proven %s ", moveToString(selectedMove), gameResult);
-
-            if (pv.isEmpty()) {
-                explanation += "after this move.\n";
-            } else if (pv.size() <= 5) {
-                explanation += String.format(
-                        "in %d turns. After we play this move, the most probable sequence of following moves will be: ",
-                        pv.size());
-                explanation += String.join(
-                                ", ",
-                                pv.stream()
-                                        .map(v -> moveToString(v.getMoveFromParent()))
-                                        .toList()) + ".\n";
-            } else {
-                explanation += String.format("in %d turns.\n", pv.size());
-            }
         }
 
-        // there are moves significantly worse that are in fact very bad
-        final var veryBadNodes = avgOutliers.getVeryBadNodes();
-        final var muchWorseNodes = avgOutliers.getMuchWorseNodes();
-        final var numOfMuchWorseNodesThatAreVeryBad = muchWorseNodes.stream()
-                .filter(node -> veryBadNodes.contains(node))
-                .count();
-        if (numOfMuchWorseNodesThatAreVeryBad > 0) {
-            explanation += String.format(
-                    "%d of alternative moves %s significantly worse. ",
-                    muchWorseNodes.size(), muchWorseNodes.size() == 1 ? "is" : "are");
-            if (numOfMuchWorseNodesThatAreVeryBad == muchWorseNodes.size()) {
-                if (numOfMuchWorseNodesThatAreVeryBad == 1) {
-                    explanation += "It ";
-                } else {
-                    explanation += "All of them ";
-                }
-            } else {
-                explanation += String.format("%d of them ", numOfMuchWorseNodesThatAreVeryBad);
-            }
+        // There are significantly worse moves that are in fact very bad
+        explanation += getMuchWorseMovesThatAreVeryBadInfo(avgOutliers, getNodeAverageEval);
 
-            final var veryBadBestNode = veryBadNodes.get(0);
-            final var veryBadBestProbability = scoreToProbability(getNodeAverageEval.apply(veryBadBestNode));
-            if (veryBadBestProbability == 0.0) {
-                explanation += String.format(
-                        "%s %s defeat.\n",
-                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "is" : "are",
-                        veryBadBestNode.isLoss(player) ? "a proven" : "highly likely a");
-            } else {
-                explanation += String.format(
-                        "%s estimated winning probability below %.2f%%.\n",
-                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "has" : "have", veryBadBestProbability);
-            }
+        // All other moves are worse
+        if (!isSolved) {
+            explanation += getAllMovesWorseInfo(avgOutliers, getNodeAverageEval, selectedProbability);
         }
 
-        // all nodes were worse
-        final var slightlyWorseNodes = avgOutliers.getSlightlyWorseNodes();
-        if (!isSolved && moveCount > 1 && slightlyWorseNodes.size() + muchWorseNodes.size() == moveCount - 1) {
-            final var secondBestNode = sortedAvgNodes.get(1);
-            final var scoreDiff = selectedProbability - scoreToProbability(getNodeAverageEval.apply(secondBestNode));
-            explanation += String.format(
-                    "The selected move is %s better than all other options (%.2f%% increased win probability over the next best option, %s).\n",
-                    slightlyWorseNodes.isEmpty() ? "significantly" : "slightly",
-                    scoreDiff,
-                    moveToString(secondBestNode.getMoveFromParent()));
-        }
-
-        // counterintuitive move
-        final var slightlyBetterNodes = avgOutliers.getSlightlyBetterNodes();
-        final var muchBetterNodes = avgOutliers.getMuchBetterNodes();
-        final var betterCount = slightlyBetterNodes.size() + muchBetterNodes.size();
-
-        final var bestAvgMove = bestAvgNode.getMoveFromParent();
-
-        if (!isSolved && betterCount > 0) {
-            final var scoreDiff = scoreToProbability(getNodeAverageEval.apply(bestAvgNode)) - selectedProbability;
-
-            explanation += String.format(
-                    "The selected best move, %s, has estimated win probability of %.2f%%, but it was not chosen based on that metric. ",
-                    moveToString(selectedMove), selectedProbability);
-            if (betterCount == 1) {
-                explanation += String.format(
-                        "There is one move (%s) with higher win probability, which is better by %.2f%%. ",
-                        moveToString(bestAvgMove), scoreDiff);
-            } else {
-                explanation += String.format(
-                        "There are %d moves with higher win probability (best of them, %s, is better by %.2f%%). ",
-                        betterCount, moveToString(bestAvgMove), scoreDiff);
-            }
-
-            // selected move was better by AMAF
-            final var visitCountAMAF = root.getVisitCountAMAF(selectedMove);
-            if (visitCountAMAF > 0) {
-                final var selectedAMAF = root.getScoreSumAMAF(selectedMove, player) / visitCountAMAF;
-                final var otherAMAF = root.getScoreSumAMAF(bestAvgMove, player) / root.getVisitCountAMAF(bestAvgMove);
-
-                final var scoreDiffAMAF = scoreToProbability(selectedAMAF) - scoreToProbability(otherAMAF);
-
-                if (scoreDiffAMAF > 0) {
-                    if (betterCount == 1) {
-                        explanation += String.format(
-                                "However, this move has %s worse AMAF score (%.2f%% worse), which influenced the result. ",
-                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly", scoreDiffAMAF);
-                    } else {
-                        explanation += String.format(
-                                "However, these moves have %s worse AMAF scores (%.2f%% worse for %s), which influenced the result. ",
-                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly",
-                                scoreDiffAMAF,
-                                moveToString(bestAvgMove));
-                    }
-                } else {
-                    if (betterCount == 1) {
-                        explanation += "However, this move has worse visit count, which influenced the result. ";
-                    } else {
-                        explanation += "However, these moves have worse visit count, which influenced the result. ";
-                    }
-                }
-            } else {
-                if (betterCount == 1) {
-                    explanation += "However, this move has worse visit count, which influenced the result. ";
-                } else {
-                    explanation += "However, these moves have worse visit count, which influenced the result. ";
-                }
-            }
+        // Counterintuitive move
+        if (!isSolved) {
+            explanation += getCounterintuitiveMoveExplanation(avgOutliers, getNodeAverageEval, selectedProbability);
         }
 
         // node not solved but we have (upper/lower) score bound = 0
         if (!isSolved) {
             if (selectedNode.getPessimisticScore(player) == 0) {
-                explanation += "\nIn this position, it is impossible to lose; the worst achievable result is a draw.\n";
+                explanation += "In this position, it is impossible to lose; the worst achievable result is a draw.\n";
             } else if (selectedNode.getOptimisticScore(player) == 0) {
-                explanation += "\nIn this position, it is impossible to win; the best achievable result is a draw.\n";
+                explanation += "In this position, it is impossible to win; the best achievable result is a draw.\n";
             }
         }
 
         // All other moves are proved lost.
         var provenBadNodes = new ForcedMoves(root, selectedNode, finalMoveSelectionPolicy, 1)
                 .getNodeStats()
-                .get(0)
+                .getFirst()
                 .provenBadNodes();
         var remainingNodes =
                 sortedAvgNodes.stream().filter(x -> !provenBadNodes.contains(x)).toList();
         var selectedNodeCategory = avgOutliers.getNodeCategories(selectedNode).stream()
                 .filter(x -> !x.equals("equal"))
                 .toList()
-                .get(0);
+                .getFirst();
 
         if (provenBadNodes.size() > moveCount * 62 / 100 && !remainingNodes.isEmpty()) {
             if (remainingNodes.size() == 1) {
@@ -327,7 +214,7 @@ public class ExplanationGenerator {
         // Moves with decisive disadvantage
         if (!outliers.getVeryBadNodes().isEmpty()) {
             String s;
-            final var veryBadBestNode = outliers.getVeryBadNodes().get(0);
+            final var veryBadBestNode = outliers.getVeryBadNodes().getFirst();
             final var veryBadBestProbability = scoreToProbability(nodeEvalFunction.apply(veryBadBestNode));
             if (veryBadBestProbability == 0.0) {
                 s = String.format("%s loss", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
@@ -352,8 +239,8 @@ public class ExplanationGenerator {
 
     private String getGeneralPositionInfo(final Outliers outliers, final Function<Node, Double> nodeEvalFunction) {
         final var sortedNodes = outliers.getSortedNodes();
-        final var worstNode = sortedNodes.get(sortedNodes.size() - 1);
-        final var bestNode = sortedNodes.get(0);
+        final var worstNode = sortedNodes.getLast();
+        final var bestNode = sortedNodes.getFirst();
 
         // worst node is at least good
         if (outliers.getGoodNodes().contains(worstNode)
@@ -400,6 +287,151 @@ public class ExplanationGenerator {
                     selectedProbability > prevProbability ? "increased" : "decreased");
         }
         return "";
+    }
+
+    private String getSolverExplanation() {
+        final var pv = getPV(selectedNode);
+        final String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
+
+        String explanation =
+                String.format("Selected move, %s, leads to a proven %s ", moveToString(selectedMove), gameResult);
+
+        if (pv.isEmpty()) {
+            explanation += "after this move.\n";
+        } else if (pv.size() <= 5) {
+            explanation += String.format(
+                    "in %d turns. After we play this move, the most probable sequence of following moves will be: ",
+                    pv.size());
+            explanation += String.join(
+                            ", ",
+                            pv.stream()
+                                    .map(v -> moveToString(v.getMoveFromParent()))
+                                    .toList()) + ".\n";
+        } else {
+            explanation += String.format("in %d turns.\n", pv.size());
+        }
+
+        return explanation;
+    }
+
+    private String getMuchWorseMovesThatAreVeryBadInfo(
+            final Outliers outliers, final Function<Node, Double> nodeEvalFunction) {
+        String explanation = "";
+
+        final var veryBadNodes = outliers.getVeryBadNodes();
+        final var muchWorseNodes = outliers.getMuchWorseNodes();
+        final var numOfMuchWorseNodesThatAreVeryBad = muchWorseNodes.stream()
+                .filter(node -> veryBadNodes.contains(node))
+                .count();
+        if (numOfMuchWorseNodesThatAreVeryBad > 0) {
+            explanation += String.format(
+                    "%d of alternative moves %s significantly worse. ",
+                    muchWorseNodes.size(), muchWorseNodes.size() == 1 ? "is" : "are");
+            if (numOfMuchWorseNodesThatAreVeryBad == muchWorseNodes.size()) {
+                if (numOfMuchWorseNodesThatAreVeryBad == 1) {
+                    explanation += "It ";
+                } else {
+                    explanation += "All of them ";
+                }
+            } else {
+                explanation += String.format("%d of them ", numOfMuchWorseNodesThatAreVeryBad);
+            }
+
+            final var veryBadBestNode = veryBadNodes.getFirst();
+            final var veryBadBestProbability = scoreToProbability(nodeEvalFunction.apply(veryBadBestNode));
+            if (veryBadBestProbability == 0.0) {
+                explanation += String.format(
+                        "%s %s defeat.\n",
+                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "is" : "are",
+                        veryBadBestNode.isLoss(player) ? "a proven" : "highly likely a");
+            } else {
+                explanation += String.format(
+                        "%s estimated winning probability below %.2f%%.\n",
+                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "has" : "have", veryBadBestProbability);
+            }
+        }
+
+        return explanation;
+    }
+
+    private String getAllMovesWorseInfo(
+            final Outliers outliers, final Function<Node, Double> nodeEvalFunction, final double selectedProbability) {
+        final var muchWorseNodes = outliers.getMuchWorseNodes();
+        final var slightlyWorseNodes = outliers.getSlightlyWorseNodes();
+        final int moveCount = root.getChildren().size();
+
+        if (moveCount > 1 && slightlyWorseNodes.size() + muchWorseNodes.size() == moveCount - 1) {
+            final var secondBestNode = outliers.getSortedNodes().get(1);
+            final var scoreDiff = selectedProbability - scoreToProbability(nodeEvalFunction.apply(secondBestNode));
+            return String.format(
+                    "The selected move is %s better than all other options (%.2f%% increased win probability over the next best option, %s).\n",
+                    slightlyWorseNodes.isEmpty() ? "significantly" : "slightly",
+                    scoreDiff,
+                    moveToString(secondBestNode.getMoveFromParent()));
+        }
+        return "";
+    }
+
+    private String getCounterintuitiveMoveExplanation(
+            final Outliers outliers, final Function<Node, Double> nodeEvalFunction, final double selectedProbability) {
+        String explanation = "";
+
+        final var slightlyBetterNodes = outliers.getSlightlyBetterNodes();
+        final var muchBetterNodes = outliers.getMuchBetterNodes();
+        final var betterCount = slightlyBetterNodes.size() + muchBetterNodes.size();
+
+        final var bestNode = outliers.getSortedNodes().getFirst();
+        final var bestMove = bestNode.getMoveFromParent();
+
+        if (betterCount > 0) {
+            final var scoreDiff = scoreToProbability(nodeEvalFunction.apply(bestNode)) - selectedProbability;
+
+            explanation += String.format(
+                    "The selected best move, %s, has estimated win probability of %.2f%%, but it was not chosen based on that metric. ",
+                    moveToString(selectedMove), selectedProbability);
+            if (betterCount == 1) {
+                explanation += String.format(
+                        "There is one move (%s) with higher win probability, which is better by %.2f%%. ",
+                        moveToString(bestMove), scoreDiff);
+            } else {
+                explanation += String.format(
+                        "There are %d moves with higher win probability (best of them, %s, is better by %.2f%%). ",
+                        betterCount, moveToString(bestMove), scoreDiff);
+            }
+
+            final String worseVisitCountString = String.format(
+                    "However, %s worse visit count, which influenced the result. ",
+                    betterCount == 1 ? "this move has" : "these moves have");
+
+            // selected move was better by AMAF
+            final var visitCountAMAF = root.getVisitCountAMAF(selectedMove);
+            if (visitCountAMAF > 0) {
+                final var selectedAMAF = root.getScoreSumAMAF(selectedMove, player) / visitCountAMAF;
+                final var otherAMAF = root.getScoreSumAMAF(bestMove, player) / root.getVisitCountAMAF(bestMove);
+
+                final var scoreDiffAMAF = scoreToProbability(selectedAMAF) - scoreToProbability(otherAMAF);
+
+                if (scoreDiffAMAF > 0) {
+                    if (betterCount == 1) {
+                        explanation += String.format(
+                                "However, this move has %s worse AMAF score (%.2f%% worse), which influenced the result. ",
+                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly", scoreDiffAMAF);
+                    } else {
+                        explanation += String.format(
+                                "However, these moves have %s worse AMAF scores (%.2f%% worse for %s), which influenced the result. ",
+                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly",
+                                scoreDiffAMAF,
+                                moveToString(bestMove));
+                    }
+                } else {
+                    explanation += worseVisitCountString;
+                }
+            } else {
+                explanation += worseVisitCountString;
+            }
+        }
+
+        return explanation;
     }
 
     private String getMastExplanation() {
