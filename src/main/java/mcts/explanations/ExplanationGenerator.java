@@ -135,11 +135,13 @@ public class ExplanationGenerator {
             String decisiveAdvantageDefinition;
             final var veryGoodWorstNode = outliers.getVeryGoodNodes().getLast();
             final var veryGoodWorstProbability = scoreToProbability(nodeEvalFunction.apply(veryGoodWorstNode));
-            if (veryGoodWorstProbability == 100.0) {
+            final var probabiliyString = String.format("%.2f%%", veryGoodWorstProbability);
+
+            if (probabiliyString.equals("100.00%")) {
                 decisiveAdvantageDefinition =
                         String.format("%s win", veryGoodWorstNode.isWin(player) ? "proven" : "highly likely");
             } else {
-                decisiveAdvantageDefinition = String.format("above %.2f%%", veryGoodWorstProbability);
+                decisiveAdvantageDefinition = String.format("above %s", probabiliyString);
             }
 
             moveCategoryStrings.add(String.format(
@@ -172,11 +174,13 @@ public class ExplanationGenerator {
             String decisiveDisadvantageDefinition;
             final var veryBadBestNode = outliers.getVeryBadNodes().getFirst();
             final var veryBadBestProbability = scoreToProbability(nodeEvalFunction.apply(veryBadBestNode));
-            if (veryBadBestProbability == 0.0) {
+            final var probabiliyString = String.format("%.2f%%", veryBadBestProbability);
+
+            if (probabiliyString.equals("0.00%")) {
                 decisiveDisadvantageDefinition =
                         String.format("%s loss", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
             } else {
-                decisiveDisadvantageDefinition = String.format("below %.2f%%", veryBadBestProbability);
+                decisiveDisadvantageDefinition = String.format("below %s", probabiliyString);
             }
 
             moveCategoryStrings.add(String.format(
@@ -202,33 +206,50 @@ public class ExplanationGenerator {
         // worst node is at least good
         if (outliers.getGoodNodes().contains(worstNode)
                 || outliers.getVeryGoodNodes().contains(worstNode)) {
-            // TODO: if probablility == 100%, print "highly likely a win"
-            return String.format(
-                    "Our position is generally advantageous (the estimated win probability for the worst of available moves is %.2f%%).\n",
-                    scoreToProbability(nodeEvalFunction.apply(worstNode)));
+            final var worstNodeProbability = scoreToProbability(nodeEvalFunction.apply(worstNode));
+            final var probabiliyString = String.format("%.2f%%", worstNodeProbability);
+
+            final var worstNodeExplanation = probabiliyString.equals("100.00%")
+                    ? "the worst of available moves is highly likely a win"
+                    : String.format(
+                            "the estimated win probability for the worst of available moves is %s", probabiliyString);
+
+            return String.format("Our position is generally advantageous (%s).\n", worstNodeExplanation);
         }
         // best node is at most bad
         else if (outliers.getBadNodes().contains(bestNode)
                 || outliers.getVeryBadNodes().contains(bestNode)) {
-            // TODO: if probablility == 0%, print "highly likely a loss"
-            return String.format(
-                    "Our position is generally disadvantageous (the estimated win probability for the best of available moves is %.2f%%).\n",
-                    scoreToProbability(nodeEvalFunction.apply(bestNode)));
+            final var bestNodeProbability = scoreToProbability(nodeEvalFunction.apply(bestNode));
+            final var probabiliyString = String.format("%.2f%%", bestNodeProbability);
+
+            final String bestNodeExplanation = probabiliyString.equals("0.00%")
+                    ? "the best of available moves is highly likely a loss"
+                    : String.format(
+                            "the estimated win probability for the best of available moves is %s", probabiliyString);
+
+            return String.format("Our position is generally disadvantageous (%s).\n", bestNodeExplanation);
         }
         // general position info
         else {
             final double selectedScore = nodeEvalFunction.apply(selectedNode);
             final double absSelectedScore = Math.abs(selectedScore);
             final double selectedProbability = scoreToProbability(selectedScore);
+            final String probabiliyString = String.format("%.2f%%", selectedProbability);
+
+            final String posExplanation = probabiliyString.equals("0.00%")
+                    ? "highly likely a loss"
+                    : probabiliyString.equals("100.00%")
+                            ? "highly likely a win"
+                            : String.format("estimated win probability: %s", probabiliyString);
 
             return String.format(
-                    "Our position is %s (estimated win probability: %.2f%%).\n",
+                    "Our position is %s (%s).\n",
                     absSelectedScore < 0.1
                             ? "balanced"
                             : String.format(
                                     "%s %sadvantageous",
                                     absSelectedScore < 0.4 ? "slightly" : "strongly", selectedScore < 0 ? "dis" : ""),
-                    selectedProbability);
+                    posExplanation);
         }
     }
 
@@ -257,8 +278,8 @@ public class ExplanationGenerator {
             explanation += "after this move.\n";
         } else if (pv.size() <= 5) {
             explanation += String.format(
-                    "in %d turns. After we play this move, the most probable sequence of following moves will be: ",
-                    pv.size());
+                    "in %d turn%s. After we play this move, the most probable sequence of following moves will be: ",
+                    pv.size(), pv.size() == 1 ? "" : "s");
             explanation += String.join(
                             ", ",
                             pv.stream()
@@ -296,15 +317,16 @@ public class ExplanationGenerator {
 
             final var veryBadBestNode = veryBadNodes.getFirst();
             final var veryBadBestProbability = scoreToProbability(nodeEvalFunction.apply(veryBadBestNode));
-            if (veryBadBestProbability == 0.0) {
+            final var probabiliyString = String.format("%.2f%%", veryBadBestProbability);
+            if (probabiliyString.equals("0.00%")) {
                 explanation += String.format(
                         "%s %s defeat.\n",
                         numOfMuchWorseNodesThatAreVeryBad == 1 ? "is" : "are",
                         veryBadBestNode.isLoss(player) ? "a proven" : "highly likely a");
             } else {
                 explanation += String.format(
-                        "%s estimated winning probability below %.2f%%.\n",
-                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "has" : "have", veryBadBestProbability);
+                        "%s estimated winning probability below %s.\n",
+                        numOfMuchWorseNodesThatAreVeryBad == 1 ? "has" : "have", probabiliyString);
             }
         }
 
@@ -367,17 +389,18 @@ public class ExplanationGenerator {
                 final var otherAMAF = root.getScoreSumAMAF(bestMove, player) / root.getVisitCountAMAF(bestMove);
 
                 final var scoreDiffAMAF = scoreToProbability(selectedAMAF) - scoreToProbability(otherAMAF);
+                final var scoreDiffAMAFString = String.format("%.2f%%", scoreDiffAMAF);
 
-                if (scoreDiffAMAF > 0) {
+                if (scoreDiffAMAF > 0 && !scoreDiffAMAFString.equals("0.00%")) {
                     if (betterCount == 1) {
                         explanation += String.format(
-                                "However, this move has %s worse AMAF score (%.2f%% worse), which influenced the result. ",
-                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly", scoreDiffAMAF);
+                                "However, this move has %s worse AMAF score (%s worse), which influenced the result. ",
+                                scoreDiffAMAF > 10.0 ? "significantly" : "slightly", scoreDiffAMAFString);
                     } else {
                         explanation += String.format(
-                                "However, these moves have %s worse AMAF scores (%.2f%% worse for %s), which influenced the result. ",
-                                scoreDiffAMAF > 20.0 ? "significantly" : "slightly",
-                                scoreDiffAMAF,
+                                "However, these moves have %s worse AMAF scores (%s worse for %s), which influenced the result. ",
+                                scoreDiffAMAF > 10.0 ? "significantly" : "slightly",
+                                scoreDiffAMAFString,
                                 moveToString(bestMove));
                     }
                 } else {

@@ -14,7 +14,7 @@ public final class OutliersThresholds {
     }
 
     public static OutliersThresholds defaultThresholds() {
-        return new OutliersThresholds(1e-8, 0.1, 0.1, 0.63);
+        return new OutliersThresholds(1e-4, 0.1, 0.1, 0.63);
     }
 
     // ---------------------------------------------------------------------------------------------------------

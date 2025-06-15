@@ -62,7 +62,7 @@ public class Outliers {
 
             // populate relative lists
             double diff = Math.abs(tempRank - selectedRank);
-            if (diff <= thresholds.getEpsilon()) {
+            if (diff < thresholds.getEpsilon()) {
                 equalNodes.add(c);
 
             } else if (diff < thresholds.getSlightDiff()) {
@@ -82,7 +82,7 @@ public class Outliers {
             // ---------------------------------------------------------------------------------------------------------
             // populate absolute lists
             double absVal = Math.abs(tempRank);
-            if (absVal <= thresholds.getLowAbsVal()) {
+            if (absVal < thresholds.getLowAbsVal()) {
                 neutralNodes.add(c);
 
             } else if (absVal < thresholds.getHighAbsVal()) {
