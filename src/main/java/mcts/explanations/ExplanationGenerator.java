@@ -70,6 +70,12 @@ public class ExplanationGenerator {
         if (isSolved) {
             // Explanation for solved node
             explanation += getSolverExplanation();
+        } else if (selectedNode.getProofNumber() == 0) {
+            // TODO: PNS proved win
+            // or maybe modify Node::isSolved/isWin so that here it would be the same case as for Score Bounds ?
+            // and also in all other places where we use solver info in explanations
+            // it should be handled the same way no matter if it's proved by Score-Bound or PNS
+            explanation += "PNS proved win.\n";
         } else {
             // Selected move and general position info
             explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
@@ -88,17 +94,20 @@ public class ExplanationGenerator {
             explanation += getCounterintuitiveMoveExplanation(avgOutliers, getNodeAverageEval, selectedProbability);
 
             // Node not solved but we have (upper/lower) score bound = 0
+            // TODO: add information that below statement is true if opponent is optimal ?
             if (selectedNode.getPessimisticScore(player) == 0) {
                 explanation += "In this position, it is impossible to lose; the worst achievable result is a draw.\n";
             } else if (selectedNode.getOptimisticScore(player) == 0) {
                 explanation += "In this position, it is impossible to win; the best achievable result is a draw.\n";
+            } else if (selectedNode.getDisproofNumber() == 0) {
+                explanation += "In this position, it is impossible to win.\n";
             }
         }
 
         // All other moves are proven loss
         explanation += getAllOtherMovesAreProvenLossInfo(avgOutliers, selectedProbability);
 
-        // TODO: use PNS?
+        // TODO: PNS - if proof/disproof number ratio is ... then position is easier to prove/disprove
 
         // MAST
         if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
@@ -158,8 +167,9 @@ public class ExplanationGenerator {
         }
         // Balanced moves
         if (!outliers.getNeutralNodes().isEmpty()) {
+            final var allProvenDraw = outliers.getNeutralNodes().stream().allMatch(n -> n.isSolved(player));
             moveCategoryStrings.add(String.format(
-                    "%d balanced (~50%%)", outliers.getNeutralNodes().size()));
+                    "%d balanced (%s)", outliers.getNeutralNodes().size(), allProvenDraw ? "proven draw" : "~50%"));
         }
         // Moves with slight disadvantage
         if (!outliers.getBadNodes().isEmpty()) {
