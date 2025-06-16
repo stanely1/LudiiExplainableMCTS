@@ -5,9 +5,14 @@ import mcts.policies.backpropagation.BackpropagationFlags;
 
 public final class PNSFinalMoveSelectionPolicy implements ISelectionPolicy {
     private final ISelectionPolicy wrappedPolicy;
+    private int proofPlayer = 0;
 
     public PNSFinalMoveSelectionPolicy(final ISelectionPolicy wrappedPolicy) {
         this.wrappedPolicy = wrappedPolicy;
+    }
+
+    public void setProofPlayer(final int proofPlayer) {
+        this.proofPlayer = proofPlayer;
     }
 
     @Override
@@ -22,13 +27,11 @@ public final class PNSFinalMoveSelectionPolicy implements ISelectionPolicy {
 
     @Override
     public double getNodeValue(Node node) {
-        if (node.getProofNumber() == 0) {
-            // select this move if PNS proved win
+        final var player = node.getParent().getPlayer();
+
+        if (player == proofPlayer && node.getProofNumber() == 0) {
+            // select this move if PNS proved win (only for our player)
             return Double.POSITIVE_INFINITY;
-            // } else if (node.getDisproofNumber() == 0) {
-            //     // NOT SURE IF THIS IS CORRECT
-            //     // don't select disproved moves
-            //     return Double.NEGATIVE_INFINITY;
         } else {
             return wrappedPolicy.getNodeValue(node);
         }

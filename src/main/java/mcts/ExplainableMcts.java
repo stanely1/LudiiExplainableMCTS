@@ -163,6 +163,10 @@ public class ExplainableMcts extends AI {
     public void initAI(final Game game, final int playerID) {
         this.player = playerID;
 
+        if (this.finalMoveSelectionPolicy instanceof PNSFinalMoveSelectionPolicy pnsPolicy) {
+            pnsPolicy.setProofPlayer(playerID);
+        }
+
         this.root = null;
         this.lastActionHistorySize = 0;
         this.lastMoveValue = 0.0;

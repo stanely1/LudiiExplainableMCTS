@@ -46,10 +46,10 @@ public class Outliers {
                     final var cmp = Double.compare(nodeRankFunction.apply(y), nodeRankFunction.apply(x));
                     if (cmp == 0) {
                         final var player = root.getPlayer();
-                        if (x.isWin(player) || y.isLoss(player)) {
+                        if (x.isWin(player) || x.getProofNumber() == 0 || y.isLoss(player)) {
                             return -1;
                         }
-                        if (x.isLoss(player) || y.isWin(player)) {
+                        if (x.isLoss(player) || y.isWin(player) || y.getProofNumber() == 0) {
                             return 1;
                         }
                     }

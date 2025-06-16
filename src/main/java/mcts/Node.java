@@ -366,10 +366,10 @@ public class Node {
         } else if (this.getPlayer() == proofPlayer) {
             // unknown OR node - need to prove 1 child or disprove all children
             this.proofNumber = 1;
-            this.disproofNumber = this.children.size() + this.unexpandedMoves.size();
+            this.disproofNumber = 1;
         } else {
             // unknown AND node - need to prove all children or disprove 1 child
-            this.proofNumber = this.children.size() + this.unexpandedMoves.size();
+            this.proofNumber = 1;
             this.disproofNumber = 1;
         }
 
@@ -378,7 +378,7 @@ public class Node {
             if (node.getPlayer() == proofPlayer) {
                 // OR node - proof number is min over children, disproof number is sum
                 node.proofNumber = Integer.MAX_VALUE;
-                node.disproofNumber = 0;
+                node.disproofNumber = node.unexpandedMoves.size();
 
                 for (final var child : node.children) {
                     if (Integer.max(node.disproofNumber, child.disproofNumber) == Integer.MAX_VALUE) {
@@ -390,7 +390,7 @@ public class Node {
                 }
             } else {
                 // AND node - proof number is sum over children, disproof number is min
-                node.proofNumber = 0;
+                node.proofNumber = node.unexpandedMoves.size();
                 node.disproofNumber = Integer.MAX_VALUE;
 
                 for (final var child : node.children) {

@@ -57,12 +57,13 @@ public class ExplanationGenerator {
         String explanation = serializeAllNodes();
 
         /*************************************** Natural language explanation ***************************************/
-        final Function<Node, Double> getNodeAverageEval =
-                _node -> _node.isSolved(player) ? _node.getPessimisticScore(player) : _node.getAverageScore(player);
+        final Function<Node, Double> getNodeAverageEval = _node -> _node.isSolved(player)
+                ? _node.getPessimisticScore(player)
+                : _node.getProofNumber() == 0 ? 1.0 : _node.getAverageScore(player);
 
         final var avgOutliers = new Outliers(root, selectedNode, getNodeAverageEval);
         final var selectedProbability = scoreToProbability(getNodeAverageEval.apply(selectedNode));
-        final var isSolved = selectedNode.isSolved(player);
+        final var isSolved = selectedNode.isSolved(player) || selectedNode.getProofNumber() == 0;
 
         // General info on available moves
         explanation += getGeneralInfoOnAvailableMoves(avgOutliers, getNodeAverageEval);
@@ -70,12 +71,6 @@ public class ExplanationGenerator {
         if (isSolved) {
             // Explanation for solved node
             explanation += getSolverExplanation();
-        } else if (selectedNode.getProofNumber() == 0) {
-            // TODO: PNS proved win
-            // or maybe modify Node::isSolved/isWin so that here it would be the same case as for Score Bounds ?
-            // and also in all other places where we use solver info in explanations
-            // it should be handled the same way no matter if it's proved by Score-Bound or PNS
-            explanation += "PNS proved win.\n";
         } else {
             // Selected move and general position info
             explanation += String.format("Selected move: %s.\n", moveToString(selectedMove));
@@ -147,8 +142,11 @@ public class ExplanationGenerator {
             final var probabiliyString = String.format("%.2f%%", veryGoodWorstProbability);
 
             if (probabiliyString.equals("100.00%")) {
-                decisiveAdvantageDefinition =
-                        String.format("%s win", veryGoodWorstNode.isWin(player) ? "proven" : "highly likely");
+                decisiveAdvantageDefinition = String.format(
+                        "%s win",
+                        veryGoodWorstNode.isWin(player) || veryGoodWorstNode.getProofNumber() == 0
+                                ? "proven"
+                                : "highly likely");
             } else {
                 decisiveAdvantageDefinition = String.format("above %s", probabiliyString);
             }
@@ -279,7 +277,9 @@ public class ExplanationGenerator {
 
     private String getSolverExplanation() {
         final var pv = getPV(selectedNode);
-        final String gameResult = selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw";
+        final String gameResult = selectedNode.isWin(player) || selectedNode.getProofNumber() == 0
+                ? "win"
+                : selectedNode.isLoss(player) ? "loss" : "draw";
 
         String explanation =
                 String.format("Selected move, %s, leads to a proven %s ", moveToString(selectedMove), gameResult);
@@ -438,7 +438,8 @@ public class ExplanationGenerator {
                 .filter(x -> !x.equals("equal"))
                 .toList()
                 .getFirst();
-        final var isSolved = selectedNode.isSolved(player);
+        final var isPnsProvenWin = selectedNode.getProofNumber() == 0;
+        final var isSolved = selectedNode.isSolved(player) || isPnsProvenWin;
 
         if (provenBadNodes.size() > root.getChildren().size() * 62 / 100 && !remainingNodes.isEmpty()) {
             if (remainingNodes.size() == 1) {
@@ -447,7 +448,9 @@ public class ExplanationGenerator {
                     explanation += String.format(
                             "The remaining one (%s) leads to a proven %s. ",
                             moveToString(selectedMove),
-                            selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw");
+                            selectedNode.isWin(player) || isPnsProvenWin
+                                    ? "win"
+                                    : selectedNode.isLoss(player) ? "loss" : "draw");
                 } else {
                     explanation += String.format(
                             "The remaining one (%s) leads to a %s position (estimated win probability is %.2f%%). ",
@@ -460,7 +463,9 @@ public class ExplanationGenerator {
                     explanation += String.format(
                             "Among the remaining ones, %s is the best, and leads to a proven %s. ",
                             moveToString(selectedMove),
-                            selectedNode.isWin(player) ? "win" : selectedNode.isLoss(player) ? "loss" : "draw");
+                            selectedNode.isWin(player) || isPnsProvenWin
+                                    ? "win"
+                                    : selectedNode.isLoss(player) ? "loss" : "draw");
                 } else {
                     explanation += String.format(
                             "Among the remaining ones, %s is the best, and leads to a %s position (estimated win probability is %.2f%%). ",
@@ -636,8 +641,14 @@ public class ExplanationGenerator {
         }
 
         if ((backpropagationFlags & BackpropagationFlags.PROOF_DISPROOF_NUMBERS) != 0) {
-            nodeString += String.format(
-                    ", proof number: %d, disproof number: %d", node.getProofNumber(), node.getDisproofNumber());
+            if (node.getProofNumber() == 0) {
+                nodeString += ", PNS proven win";
+            } else if (node.getDisproofNumber() == 0) {
+                nodeString += ", PNS disproven win";
+            } else {
+                nodeString += String.format(
+                        ", proof number: %d, disproof number: %d", node.getProofNumber(), node.getDisproofNumber());
+            }
         }
 
         if ((backpropagationFlags & BackpropagationFlags.SCORE_BOUNDS) != 0) {
