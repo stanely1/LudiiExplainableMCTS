@@ -24,13 +24,13 @@ public class ExplainableMctsFactory {
             case "grave" -> {
                 return new GraveSelectionPolicy(cfg.graveBias, cfg.graveRef);
             }
-            case "robustchild" -> {
+            case "rave" -> {
+                return new GraveSelectionPolicy(cfg.graveBias, 0);
+            }
+            case "robustchild", "mostvisited" -> {
                 return new MostVisitedSelectionPolicy();
             }
-            case "mostvisited" -> {
-                return new MostVisitedSelectionPolicy();
-            }
-            case "ucb1" -> {
+            case "ucb1", "uct" -> {
                 return new UCB1SelectionPolicy();
             }
             default -> {
@@ -45,13 +45,13 @@ public class ExplainableMctsFactory {
             case "grave" -> {
                 return new GraveSelectionPolicy(cfg.graveBias, cfg.graveRef);
             }
-            case "robustchild" -> {
+            case "rave" -> {
+                return new GraveSelectionPolicy(cfg.graveBias, 0);
+            }
+            case "robustchild", "mostvisited" -> {
                 return new MostVisitedSelectionPolicy();
             }
-            case "mostvisited" -> {
-                return new MostVisitedSelectionPolicy();
-            }
-            case "ucb1" -> {
+            case "ucb1", "uct" -> {
                 return new UCB1SelectionPolicy();
             }
             default -> {
