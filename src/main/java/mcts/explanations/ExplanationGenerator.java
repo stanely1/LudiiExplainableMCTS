@@ -1,5 +1,6 @@
 package mcts.explanations;
 
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.function.Function;
 import mcts.*;
@@ -89,20 +90,41 @@ public class ExplanationGenerator {
             explanation += getCounterintuitiveMoveExplanation(avgOutliers, getNodeAverageEval, selectedProbability);
 
             // Node not solved but we have (upper/lower) score bound = 0
-            // TODO: add information that below statement is true if opponent is optimal ?
             if (selectedNode.getPessimisticScore(player) == 0) {
                 explanation += "In this position, it is impossible to lose; the worst achievable result is a draw.\n";
             } else if (selectedNode.getOptimisticScore(player) == 0) {
-                explanation += "In this position, it is impossible to win; the best achievable result is a draw.\n";
+                explanation +=
+                        "In this position, it is impossible to win; the best achievable result is a draw (assuming optimal opponent).\n";
             } else if (selectedNode.getDisproofNumber() == 0) {
-                explanation += "In this position, it is impossible to win.\n";
+                explanation += "In this position, it is impossible to win (assuming optimal opponent).\n";
             }
         }
 
         // All other moves are proven loss
         explanation += getAllOtherMovesAreProvenLossInfo(avgOutliers, selectedProbability);
 
-        // TODO: PNS - if proof/disproof number ratio is ... then position is easier to prove/disprove
+        // PNS numbers strong imbalance - easier to prove/dispove win
+        if (selectedNode.getDisproofNumber() > 0 && selectedNode.getProofNumber() > 0) {
+            final double pnToDpnRatio = (double) selectedNode.getProofNumber() / selectedNode.getDisproofNumber();
+            final double dpnToPnRatio = 1.0 / pnToDpnRatio;
+            final double pnsRatioThreshold = 0.2;
+
+            final boolean isPromising = pnToDpnRatio < pnsRatioThreshold;
+            final boolean isRisky = dpnToPnRatio < pnsRatioThreshold;
+
+            if (isPromising || isRisky) {
+                final var df = new DecimalFormat();
+                explanation += String.format(
+                        """
+                        Playing the selected move, substantially %s effort is required to prove a win than to disprove it
+                        (%s times %s positions to solve), which makes it a %s direction.
+                        """,
+                        isPromising ? "less" : "more",
+                        isPromising ? df.format(dpnToPnRatio) : df.format(pnToDpnRatio),
+                        isPromising ? "less" : "more",
+                        isPromising ? "promising" : "risky");
+            }
+        }
 
         // MAST
         if ((backpropagationFlags & BackpropagationFlags.GLOBAL_ACTION_STATS) != 0) {
