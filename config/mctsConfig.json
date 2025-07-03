@@ -1,6 +1,6 @@
 {
   "useScoreBounds": true,
-  "usePNS": false,
+  "usePNS": true,
   "selectionPolicy": "GRAVE",
   "finalMoveSelectionPolicy": "RobustChild",
   "playoutPolicy": "NST",

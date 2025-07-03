@@ -112,7 +112,7 @@ public class ExplanationGenerator {
             final boolean isPromising = pnToDpnRatio < pnsRatioThreshold;
             final boolean isRisky = dpnToPnRatio < pnsRatioThreshold;
 
-            if (isPromising || isRisky) {
+            if (isPromising) { // if (isPromising || isRisky)
                 final var df = new DecimalFormat();
                 explanation += String.format(
                         """
