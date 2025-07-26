@@ -44,10 +44,6 @@ public class ExplainableMcts extends AI {
 
     // Global tables for MAST/NST (i.e action/n-gram statistics)
 
-    // TODO:
-    // - Decay stats over time
-    // (see: https://cris.maastrichtuniversity.nl/ws/portalfiles/portal/37539340/c6529.pdf/ chapter 2.5.2)
-
     private final Map<MoveKey, ActionStats> globalActionStats = new HashMap<>();
     private final Map<NGramMoveKey, ActionStats> globalNGramStats = new HashMap<>();
 
@@ -117,7 +113,6 @@ public class ExplainableMcts extends AI {
 
         initRoot(context);
 
-        // TODO: fixed num of iterations + fixed seed
         while (numIterations < maxIts
                 && System.currentTimeMillis() < stopTime
                 && !wantsInterrupt
@@ -296,7 +291,6 @@ public class ExplainableMcts extends AI {
             }
         }
 
-        // TODO: needed here? why setting it once didn't work ?????
         if (this.playoutPolicy instanceof IGlobalActionStatsUser globalActionStatsPlayoutPolicy) {
             globalActionStatsPlayoutPolicy.setGlobalActionStats(globalActionStats);
         }

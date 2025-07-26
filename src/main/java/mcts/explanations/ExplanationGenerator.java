@@ -547,8 +547,6 @@ public class ExplanationGenerator {
         final var veryGoodNodes = outliers.getVeryGoodNodes();
         if (!veryGoodNodes.isEmpty()
                 && veryGoodNodes.size() < root.getChildren().size() / 7) {
-            // TODO: print probability diff over the other moves rather than absolute value -> (at least %.2f%% better)
-            // OR maybe "N moves have very high MAST value (at least X% win probability)" ???
             if (veryGoodNodes.size() == 1) {
                 explanations.add(String.format(
                         "One move (%s) is significantly better (at least %.2f%%) than the rest according to the %s metric.",

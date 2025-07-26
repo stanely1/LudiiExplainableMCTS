@@ -68,10 +68,6 @@ public class Node {
         this.unexpandedMoves = new FastArrayList<>(game.moves(context).moves());
     }
 
-    /**
-     * State getters
-     * TODO: use @Getter annotation for less code
-     */
     public Node getParent() {
         return parent;
     }
@@ -93,7 +89,6 @@ public class Node {
     }
 
     public int getVisitCountAMAF(final Move move) {
-        // TODO: maybe use some depth other than 0 for MoveKey
         final var stats = statisticsAMAF.get(new MoveKey(move, 0));
         return stats == null ? 0 : stats.visitCount;
     }
@@ -103,7 +98,6 @@ public class Node {
     }
 
     public double getScoreSumAMAF(final Move move, final int player) {
-        // TODO: maybe use some depth other than 0 for MoveKey
         final var stats = statisticsAMAF.get(new MoveKey(move, 0));
         return stats == null ? 0.0 : stats.scoreSums[player];
     }
@@ -193,7 +187,6 @@ public class Node {
                         bestChild == null ? Double.NEGATIVE_INFINITY : bestChild.getAverageScore(getPlayer());
 
                 // Tie-Breaker - better average score
-                // TODO: think if it should be added as a method in SelectionPolicy instead of coding it here
                 if (childAvg > bestAvg) {
                     bestChild = childNode;
                     numBestFound = 1;

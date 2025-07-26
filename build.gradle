@@ -47,7 +47,6 @@ tasks.register('downloadLudiiJar', Exec) {
 }
 
 // download ludi for windows
-// TODO: find out how to detect OS and use proper command
 tasks.register('downloadLudiiJarWindows', Exec) {
     description = 'Download Ludii-1.3.14.jar to lib directory'
     group = 'download'

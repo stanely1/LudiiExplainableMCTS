@@ -10,9 +10,6 @@ public final class ScoreBoundedSelectionPolicy implements ISelectionPolicy {
         this.wrappedPolicy = wrappedPolicy;
     }
 
-    // TODO:
-    // next 2 functions duplicated in ScoreBoundedFinalMoveSelectionPolicy
-    // maybe move them to some base class ?
     @Override
     public String getName() {
         return "Score Bounded " + wrappedPolicy.getName();
