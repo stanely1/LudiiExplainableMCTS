@@ -121,7 +121,7 @@ public class ExplanationGenerator {
                         """,
                         isPromising ? "less" : "more",
                         isPromising ? df.format(dpnToPnRatio) : df.format(pnToDpnRatio),
-                        isPromising ? "less" : "more",
+                        isPromising ? "fewer" : "more",
                         isPromising ? "promising" : "risky");
             }
         }
