@@ -168,7 +168,7 @@ public class ExplanationGenerator {
                         "%s win",
                         veryGoodWorstNode.isWin(player) || veryGoodWorstNode.getProofNumber() == 0
                                 ? "proven"
-                                : "highly likely");
+                                : "highly likely a");
             } else {
                 decisiveAdvantageDefinition = String.format("above %s", probabiliyString);
             }
@@ -208,7 +208,7 @@ public class ExplanationGenerator {
 
             if (probabiliyString.equals("0.00%")) {
                 decisiveDisadvantageDefinition =
-                        String.format("%s loss", veryBadBestNode.isLoss(player) ? "proven" : "highly likely");
+                        String.format("%s loss", veryBadBestNode.isLoss(player) ? "proven" : "highly likely a");
             } else {
                 decisiveDisadvantageDefinition = String.format("below %s", probabiliyString);
             }
